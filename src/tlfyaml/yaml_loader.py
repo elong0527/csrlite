@@ -38,10 +38,28 @@ class YamlInheritanceLoader:
     def _deep_merge(self, dict1: Dict, dict2: Dict) -> Dict:
         merged = deepcopy(dict1)
         for key, value in dict2.items():
-            if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+            if key in merged and isinstance(merged[key], list) and isinstance(value, list):
+                # Heuristic to check if these are lists of keywords (dicts with a 'name')
+                # This logic is specific to how this project uses YAML inheritance.
+                is_keyword_list = all(isinstance(i, dict) and 'name' in i for i in value) and \
+                                  all(isinstance(i, dict) and 'name' in i for i in merged[key])
+
+                if is_keyword_list:
+                    merged_by_name = {item['name']: item for item in merged[key]}
+                    for item in value:
+                        if item['name'] in merged_by_name:
+                            # It's a dict merge, so we can recursively call _deep_merge
+                            merged_by_name[item['name']] = self._deep_merge(merged_by_name[item['name']], item)
+                        else:
+                            merged_by_name[item['name']] = item
+                    merged[key] = list(merged_by_name.values())
+                else:
+                    # Fallback for simple lists: concatenate and remove duplicates
+                    # Note: This is a simple approach and might not be suitable for all list types.
+                    merged[key].extend([item for item in value if item not in merged[key]])
+            
+            elif key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
                 merged[key] = self._deep_merge(merged[key], value)
-            elif key in merged and isinstance(merged[key], list) and isinstance(value, list):
-                merged[key].extend([item for item in value if item not in merged[key]])
             else:
                 merged[key] = value
         return merged
