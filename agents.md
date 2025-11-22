@@ -129,6 +129,11 @@ population:
 4. Check SQL filter syntax
 5. Verify plan expansion produces expected count
 
+### 6. Code Management
+**DO NOT:**
+- Automatically stage modified files. Always confirm explicit instructions or run `git status` first.
+- Automatically commit changes. Always await explicit instructions to commit, and propose a draft commit message for user review.
+
 ## Working with the Framework
 
 ### Loading and Testing Plans
