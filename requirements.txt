@@ -1,0 +1,13 @@
+# Core dependencies
+pydantic>=2.0.0
+PyYAML>=6.0
+polars>=0.20.0
+
+# Optional dependencies for full functionality
+# rtflite  # For RTF generation (when available)
+# matplotlib>=3.5.0  # For figure generation
+# plotly>=5.0.0  # Alternative plotting library
+
+# Development and testing dependencies
+pytest>=7.0.0
+pytest-cov>=4.0.0
