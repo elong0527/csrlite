@@ -2,6 +2,7 @@
 pydantic>=2.0.0
 PyYAML>=6.0
 polars>=0.20.0
+pyarrow>=14.0.0
 
 # Optional dependencies for full functionality
 # rtflite  # For RTF generation (when available)

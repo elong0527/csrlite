@@ -14,10 +14,10 @@ Key Features:
 - Self-contained YAML configurations
 
 Example Usage:
-    from tlfyaml import PlanLoader
+    from tlfyaml import load_plan
 
-    loader = PlanLoader('config/yaml/study_abc123.yaml')
-    summary = loader.expand()
+    study_plan = load_plan('config/yaml/study_abc123.yaml')
+    summary = study_plan.get_summary()
 
     print(f"Study: {summary['study']['name']}")
     print(f"Analyses: {summary['individual_analyses']}")
@@ -25,7 +25,7 @@ Example Usage:
 
 from .plan import (
     # Core classes
-    PlanLoader,
+    load_plan,
     StudyPlan,
     KeywordRegistry,
     PlanExpander,
@@ -46,7 +46,7 @@ __author__ = "TLF YAML Framework Contributors"
 # Main exports for common usage
 __all__ = [
     # Primary user interface
-    "PlanLoader",
+    "load_plan",
     "StudyPlan",
 
     # Core functionality
@@ -66,5 +66,5 @@ __all__ = [
 # Convenience function for quick expansion
 def expand_plan(plan_path: str) -> dict:
     """Quick function to load and expand a plan file."""
-    loader = PlanLoader(plan_path)
-    return loader.expand()
+    study_plan = load_plan(plan_path)
+    return study_plan.get_summary()

@@ -74,6 +74,6 @@ parameter:
 
 data:
   - name: adsl 
-    path: data/adsl.parquet
+    path: ../../data/adsl.parquet
   - name: adae
-    path: data/adae.parquet
+    path: ../../data/adae.parquet
