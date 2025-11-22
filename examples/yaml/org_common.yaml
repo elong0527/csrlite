@@ -1,0 +1,40 @@
+# Organization-wide definitions
+organization:
+  name: "clinical_trials_org"
+  version: "1.0"
+
+common_variables:
+  subject_id: &subject_id
+    name: "USUBJID"
+    label: "Unique Subject Identifier"
+    type: "string"
+    required: true
+
+  treatment_var: &treatment_var
+    name: "TRTA"
+    label: "Actual Treatment"
+    type: "string"
+    required: true
+
+common_populations: &common_populations
+  safety:
+    name: "SAFFL"
+    label: "Safety Population Flag"
+    filter: "SAFFL == 'Y'"
+
+  itt:
+    name: "ITTFL"
+    label: "Intent-to-Treat Population Flag"
+    filter: "ITTFL == 'Y'"
+
+  pp:
+    name: "PPROTFL"
+    label: "Per-Protocol Population Flag"
+    filter: "PPROTFL == 'Y'"
+
+output_formats: &output_formats
+  rtf:
+    engine: "rtflite"
+    orientation: "landscape"
+    font_size: 9
+    title_page: true
