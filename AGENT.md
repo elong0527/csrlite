@@ -2,251 +2,245 @@
 
 ## Overview
 
-This document provides guidance for AI agents working with the TLF YAML Framework for clinical trial reporting. The framework uses hierarchical YAML configurations with inheritance to generate Tables, Listings, and Figures (TLFs) for regulatory submissions.
+This document provides guidance for AI agents working with the TLF YAML Framework for clinical trial reporting. The framework uses a simplified plan-focused approach with single YAML files per study, directly mapping to metalite R package patterns for generating Tables, Listings, and Figures (TLFs) for regulatory submissions.
 
-## Architecture Understanding
+## Simplified Architecture
 
 ### Core Components
 
 ```
 src/tlfyaml/
-├── models/          # Pydantic data models
-│   ├── base.py      # Core entities (Variable, Population, Treatment, etc.)
-│   ├── tlf.py       # TLF specifications (Table, Listing, Figure)
-│   └── config.py    # Configuration models (Org, TA, Study)
-├── loaders/         # YAML inheritance system
-│   └── yaml_loader.py
-└── generators/      # TLF generation engines
-    └── tlf_generator.py
+├── simple_plan.py   # Main simplified plan implementation
+└── models/
+    └── plan.py      # Plan data models (CondensedPlan, IndividualPlan)
 ```
 
-### Hierarchical Inheritance Pattern
+### Single Plan File Approach
 
-1. **Organization Level** (`org_common.yaml`)
-   - Common variables, populations, output formats
-   - Shared across all therapeutic areas
+Each study has a single plan YAML file that contains everything needed:
+- Study metadata
+- Data source references (subject/observation level)
+- Condensed analysis plans that expand to individual analyses
 
-2. **Therapeutic Area Level** (`ta_safety.yaml`)
-   - TA-specific populations and parameters
-   - Inherits from organization level
-   - Example: safety tables, efficacy endpoints
-
-3. **Study Level** (`study_xyz123.yaml`)
-   - Study-specific treatments, data sources, TLFs
-   - Inherits from TA level
-   - Protocol-specific configurations
+Example: `examples/yaml/plan_xyz123.yaml`
 
 ## Key Design Principles
 
-### 1. YAML Anchors for Reusability
-```yaml
-# Define once
-safety_population: &safety
-  name: "SAFFL"
-  label: "Safety Population Flag"
-  filter: "SAFFL == 'Y'"
+### 1. Metalite R Pattern Mapping
+Direct correspondence between metalite R syntax and YAML structure:
 
-# Reuse everywhere
-tlfs:
-  ae_summary:
-    population: *safety
+**Metalite R:**
+```r
+plan(analysis = "ae_summary",
+     population = "apat",
+     observation = c("wk12", "wk24"),
+     parameter = "any;rel;ser")
 ```
 
-### 2. SQL-like Filtering
+**YAML Equivalent:**
 ```yaml
-population:
-  safety:
-    filter: "SAFFL == 'Y' AND TRTEMFL == 'Y'"
-  # Converts to polars: df.filter((pl.col("SAFFL") == "Y") & (pl.col("TRTEMFL") == "Y"))
+- analysis: "ae_summary"
+  population: ["apat"]
+  observation: ["wk12", "wk24"]
+  parameter: "any;rel;ser"
 ```
 
-### 3. Metadata-Driven Configuration
+### 2. Cartesian Product Expansion
+One condensed plan generates multiple individual analyses through Cartesian product:
+- 1 analysis × 1 population × 2 observations × 3 parameters = 6 individual analyses
+
+### 3. Two Data Source Pattern
+Assumes at most two data sources:
+- **Subject level**: e.g., ADSL (demographics)
+- **Observation level**: e.g., ADAE (adverse events)
+
 ```yaml
-tlf_spec:
-  type: "table"
-  title: "Adverse Events Summary"
-  data_source: "adae"
-  population: "safety"
-  summary_vars: ["any_ae", "ser_ae"]
+data:
+  subject: "data/adam_validate/adsl.parquet"
+  observation: "data/adam_validate/adae.parquet"
 ```
 
 ## Working with the Framework
 
-### Loading Configurations
+### Loading and Expanding Plans
 ```python
-from tlfyaml import YAMLInheritanceLoader, TLFGenerator
+from tlfyaml.simple_plan import SimplePlanLoader
 
-# Load with inheritance resolution
-loader = YAMLInheritanceLoader(config_base_path="examples/yaml")
-config = loader.load_study_config("study_xyz123.yaml")
+# Load plan and expand to individual analyses
+loader = SimplePlanLoader('examples/yaml')
+summary = loader.expand('plan_xyz123.yaml')
 
-# Generate TLFs
-generator = TLFGenerator(config)
-generator.generate_tlf("ae_summary_by_treatment")
+# Access expanded analyses
+print(f"Study: {summary['study']['name']}")
+print(f"Plans: {summary['condensed_plans']} → {summary['individual_analyses']} analyses")
 ```
 
-### Understanding Data Models
+### Understanding Plan Models
 
-#### Core Entities
-- **Variable**: Clinical data variable (USUBJID, TRTA, etc.)
-- **Population**: Analysis population with filter criteria
-- **Treatment**: Treatment group definition with filters
-- **DataSource**: ADaM dataset specification
+#### Core Concepts
+- **SimplePlan**: Condensed plan specification with lists for Cartesian expansion
+- **StudyPlan**: Complete study plan containing metadata and multiple SimplePlans
+- **Plan Expansion**: Converting condensed plans to individual analysis specifications
 
-#### TLF Types
-- **Table**: Summary tables with grouping and statistics
-- **Listing**: Patient-level data listings
-- **Figure**: Plots and visualizations
+#### Plan Structure
+```yaml
+plans:
+  - analysis: "demographics"      # Single analysis type
+    population: ["itt"]          # List of populations
+    observation: ["wk12"]        # Optional observation periods
+    parameter: ["age", "sex"]    # List or semicolon-separated parameters
+```
 
 ### Common Patterns
 
-#### 1. Adding New TLF
+#### 1. Single Analysis Plan
 ```yaml
-tlfs:
-  new_analysis:
-    type: "table"
-    title: "New Analysis Table"
-    data_source: "adsl"
-    population: "itt"
-    group_by: ["TRTA"]
-    summary_vars: ["AGE", "SEX"]
-    output:
-      filename: "t_new_analysis.rtf"
+- analysis: "demographics"
+  population: ["itt"]
+  # No observation or parameter needed for demographics
 ```
 
-#### 2. Creating TA-Specific Templates
+#### 2. Multiple Populations
 ```yaml
-# In ta_oncology.yaml
-oncology_populations:
-  evaluable_tumor: &eval_tumor
-    name: "EVALFL"
-    label: "Evaluable for Tumor Response"
-    filter: "EVALFL == 'Y' AND BASELINE_TUMOR IS NOT NULL"
-
-efficacy_template: &eff_template
-  type: "table"
-  data_source: "adrs"
-  population: *eval_tumor
+- analysis: "ae_summary"
+  population: ["apat", "itt", "safety"]
+  observation: ["wk12"]
+  parameter: ["any"]
 ```
 
-#### 3. Study-Specific Customization
+#### 3. Cartesian Product Expansion
 ```yaml
-# Inherit template and customize
-tumor_response:
-  <<: *eff_template
-  title: "Tumor Response Analysis"
-  summary_vars: ["COMPLETE_RESPONSE", "PARTIAL_RESPONSE"]
-```
+- analysis: "ae_specific"
+  population: ["apat"]
+  observation: ["wk12", "wk24"]
+  parameter: ["any", "rel", "ser"]
+# Generates 6 individual analyses (1×2×3)
 
 ## Agent Guidelines
 
-### 1. When Modifying Configurations
+### 1. When Creating Plan Configurations
 
 **DO:**
-- Use anchors (`&`) for reusable definitions
-- Follow inheritance hierarchy (org → ta → study)
-- Include complete filter expressions
-- Validate YAML syntax and structure
-- Test configuration loading
+- Use consistent list format with `-` for all plan items
+- Include required `parameter` field for all analyses except demographics
+- Follow metalite R syntax patterns directly
+- Test plan expansion to verify expected number of analyses
+- Use semicolon format `"any;rel;ser"` for single parameter combinations
+- Use list format `["any", "rel", "ser"]` for Cartesian product expansion
 
 **DON'T:**
-- Duplicate definitions across files
-- Hard-code values that should be configurable
-- Break existing inheritance chains
-- Create circular references
+- Mix plan naming conventions (avoid named plan sections)
+- Forget required `parameter` field
+- Create overly complex nested structures
+- Duplicate analysis specifications
 
 ### 2. Understanding Clinical Context
 
-**Key Clinical Concepts:**
-- **Safety Population**: Subjects who received study treatment (`SAFFL == 'Y'`)
-- **ITT Population**: All randomized subjects (`ITTFL == 'Y'`)
-- **Treatment-Emergent**: Events during treatment period (`TRTEMFL == 'Y'`)
-- **Serious AE**: Life-threatening events (`AESER == 'Y'`)
+**Key Clinical Populations:**
+- **ITT**: Intention-to-Treat population (all randomized)
+- **APAT**: All Patients as Treated (safety population)
+- **Safety**: Subjects who received study treatment
 
-**Common Variables:**
-- `USUBJID`: Unique Subject Identifier
-- `TRTA`/`TRTP`: Actual/Planned Treatment
-- `AESOC`: System Organ Class (AE grouping)
-- `AEDECOD`: Preferred Term (specific AE)
+**Common Analysis Types:**
+- **demographics**: Subject baseline characteristics
+- **ae_summary**: Adverse event summary tables
+- **ae_specific**: Specific adverse event analysis
+- **ae_listing**: Detailed adverse event listings
+
+**Parameter Examples:**
+- **any**: Any adverse event
+- **rel**: Related adverse events
+- **ser**: Serious adverse events
 
 ### 3. Error Handling
 
 **Common Issues:**
-- Missing inheritance files
-- Invalid filter syntax
-- Circular references in anchors
-- Missing required fields in TLF specs
+- Missing `parameter` field in plans
+- Invalid YAML list syntax
+- File path errors in data sources
+- Pydantic validation failures
 
 **Debugging:**
-- Check inheritance chain resolution
-- Validate filter expressions
-- Verify data source availability
-- Test with minimal configurations
+- Use `SimplePlanLoader` to test plan loading
+- Check plan expansion results
+- Verify YAML syntax with proper `-` list format
+- Test with example files first
 
 ## Extension Points
 
-### Adding New TLF Types
-1. Extend `TLFBase` in `models/tlf.py`
-2. Add generation logic in `generators/tlf_generator.py`
-3. Update configuration schema
+### Adding New Analysis Types
+1. Add new analysis identifier to plan YAML
+2. Implement corresponding generation logic
+3. Define required parameters for the analysis type
 
-### Custom Analysis Parameters
-1. Define in therapeutic area YAML
-2. Reference in study TLF specifications
-3. Implement calculation logic in generator
+### Custom Parameters
+1. Add new parameter values to plan specifications
+2. Document parameter meaning and usage
+3. Ensure parameter combinations make clinical sense
 
-### New Output Formats
-1. Extend `OutputFormat` model
-2. Add format-specific generation logic
-3. Update template inheritance
+### Data Source Extensions
+1. Modify data source references in plan YAML
+2. Update loader to handle new data sources
+3. Maintain subject/observation level distinction
 
 ## Best Practices for Agents
 
-### 1. Configuration Changes
-- Always validate inheritance after changes
-- Test with example data before deployment
-- Document new patterns and templates
-- Follow naming conventions
+### 1. Plan Design
+- Focus on simplicity over complexity
+- Use single plan file per study approach
+- Follow metalite R patterns directly
+- Validate plan expansion results
 
 ### 2. Clinical Accuracy
-- Understand regulatory requirements
-- Validate population definitions
-- Ensure traceability of calculations
-- Follow CDISC ADaM standards
+- Understand analysis population definitions
+- Use appropriate parameter combinations
+- Ensure clinically meaningful groupings
+- Follow regulatory TLF standards
 
 ### 3. Maintainability
-- Use descriptive names for anchors
-- Comment complex filter logic
-- Group related definitions
-- Minimize configuration duplication
+- Use descriptive analysis identifiers
+- Document parameter meanings clearly
+- Keep plan specifications minimal
+- Test with realistic data scenarios
 
 ## Resources
 
-- **Design Document**: `TLF_YAML_Framework_Design.md`
-- **Example Configurations**: `examples/yaml/`
-- **Demo Script**: `examples/demo.py`
-- **Pydantic Models**: `src/tlfyaml/models/`
+- **Simplified Design Document**: `SIMPLIFIED_DESIGN.md`
+- **Example Plan**: `examples/yaml/plan_xyz123.yaml`
+- **Main Implementation**: `src/tlfyaml/simple_plan.py`
+- **Plan Models**: `src/tlfyaml/models/plan.py`
 
 ## Quick Reference
 
-### File Structure
-```
-examples/yaml/
-├── org_common.yaml      # Organization-wide definitions
-├── ta_safety.yaml       # Safety analysis templates
-└── study_xyz123.yaml    # Study-specific configuration
+### Plan File Structure
+```yaml
+# Single plan file per study
+study:
+  name: "XYZ123"
+  title: "Phase III Study"
+
+data:
+  subject: "data/adsl.parquet"      # Subject-level data
+  observation: "data/adae.parquet"  # Observation-level data
+
+plans:
+  - analysis: "demographics"
+    population: ["itt"]
+  - analysis: "ae_summary"
+    population: ["apat"]
+    observation: ["wk12", "wk24"]
+    parameter: "any;rel;ser"
 ```
 
 ### Key Commands
 ```bash
-# Run demo
-uv run python examples/demo.py
+# Run simplified demo
+uv run python -c "from tlfyaml.simple_plan import demonstrate_simplicity; demonstrate_simplicity()"
 
-# Load configuration
-config = loader.load_study_config("study_xyz123.yaml")
-
-# Generate TLF
-generator.generate_tlf("ae_summary_by_treatment")
+# Load and expand plan
+from tlfyaml.simple_plan import SimplePlanLoader
+loader = SimplePlanLoader('examples/yaml')
+summary = loader.expand('plan_xyz123.yaml')
 ```
 
-This framework provides a robust foundation for clinical TLF generation while maintaining flexibility and regulatory compliance.
+This simplified framework prioritizes practical clinical analysis needs over architectural complexity, following the metalite R package pattern directly.

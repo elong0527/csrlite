@@ -2,94 +2,91 @@
 
 ## Project Overview
 
-This is a proof-of-concept **hierarchical YAML-based framework** for generating clinical trial Tables, Listings, and Figures (TLFs). The framework is designed for biostatisticians and statistical programmers working on regulatory submissions.
+This is a **simplified plan-focused YAML framework** for generating clinical trial Tables, Listings, and Figures (TLFs). The framework directly follows the metalite R package pattern and is designed for biostatisticians and statistical programmers working on regulatory submissions.
 
-### Key Features
-- ✅ **Hierarchical inheritance**: Organization → Therapeutic Area → Study
-- ✅ **Metadata-driven**: No hard-coded assumptions
-- ✅ **Self-contained YAML**: Platform-agnostic SQL-like filters
-- ✅ **Anchor-based reusability**: DRY principle implementation
-- ✅ **Production-ready structure**: Follows metalite R package principles
+### Key Features (Simplified Design)
+- ✅ **Plan-focused approach**: Single YAML file per study
+- ✅ **Direct metalite mapping**: 1:1 correspondence with metalite R syntax
+- ✅ **Cartesian product expansion**: Condensed plans → multiple analyses
+- ✅ **Clean YAML structure**: Uses consistent list format with `-`
+- ✅ **No inheritance complexity**: Focused on practical analysis planning
 
 ## Quick Start for Claude
 
 ### Understanding the Repository
 ```bash
-# Project structure
+# Simplified project structure
 demo-tlf-yaml/
-├── src/tlfyaml/              # Core framework
-├── examples/yaml/            # Configuration examples
-├── examples/demo.py          # Working demonstration
-└── TLF_YAML_Framework_Design.md  # Complete design document
+├── src/tlfyaml/
+│   └── simple_plan.py        # Core plan expansion logic
+├── examples/yaml/
+│   └── plan_xyz123.yaml      # Study analysis plan
+└── SIMPLIFIED_DESIGN.md      # Design documentation
 ```
 
 ### Running the Demo
 ```bash
 # Initialize environment
-uv add pydantic pyyaml polars pytest
+uv add pydantic pyyaml polars
 
-# Run demonstration
-uv run python examples/demo.py
+# Test simplified approach
+uv run python src/tlfyaml/simple_plan.py
 ```
 
 ## Core Concepts for Claude
 
-### 1. Inheritance Hierarchy
-The framework uses a three-level inheritance system inspired by enterprise clinical operations:
+### 1. Single Plan File Approach
+The framework uses one YAML file per study that directly maps to metalite R patterns:
 
 ```yaml
-# org_common.yaml (Organization level)
-common_populations: &common_populations
-  safety:
-    name: "SAFFL"
-    label: "Safety Population Flag"
-    filter: "SAFFL == 'Y'"
+# plan_xyz123.yaml - Complete study analysis plan
+study:
+  name: "XYZ123"
+  title: "Phase III Study of Drug X vs Placebo"
 
-# ta_safety.yaml (Therapeutic Area level)
-inherits_from: "org_common"
-populations:
-  safety_evaluable:
-    name: "SAFEVAL"
-    label: "Safety Evaluable Population"
-    filter: "SAFFL == 'Y' AND DTHFL != 'Y'"
+data:
+  subject: "data/adam_validate/adsl.parquet"
+  observation: "data/adam_validate/adae.parquet"
 
-# study_xyz123.yaml (Study level)
-inherits_from: "ta_safety"
-data_sources:
-  adae:
-    name: "adae"
-    path: "data/adam_validate/adae.parquet"
-    source: "ADAE"
+plans:
+  - analysis: "ae_summary"
+    population: ["apat"]
+    observation: ["wk12", "wk24"]
+    parameter: "any;rel;ser"
+
+  - analysis: "ae_specific"
+    population: ["apat"]
+    observation: ["wk12", "wk24"]
+    parameter: ["any", "rel", "ser"]
 ```
 
-### 2. YAML Anchors for Clinical Templates
-Anchors (`&`) and references (`*`) eliminate duplication and ensure consistency:
+### 2. Direct Metalite R Mapping
+Perfect 1:1 correspondence between R and YAML:
 
-```yaml
-# Define once
-control: &control
-  name: "Placebo"
-  variable: "TRTA"
-  filter: "TRTA == 'Placebo'"
-
-# Use everywhere
-ae_summary:
-  treatments: [*control, *active]
-
-demographics:
-  treatments: [*control, *active]  # Same definition guaranteed
+```r
+# Metalite R code
+plan(analysis="ae_summary", population="apat",
+     observation=c("wk12", "wk24"), parameter="any;rel;ser")
 ```
 
-### 3. SQL-like Filtering for Platform Agnosticism
-Filter expressions work with Python (polars), R (dplyr), and SQL:
-
 ```yaml
-population:
-  safety:
-    filter: "SAFFL == 'Y' AND TRTEMFL == 'Y'"
-    # Python/polars: df.filter((pl.col("SAFFL") == "Y") & (pl.col("TRTEMFL") == "Y"))
-    # R/dplyr: filter(SAFFL == "Y" & TRTEMFL == "Y")
-    # SQL: WHERE SAFFL = 'Y' AND TRTEMFL = 'Y'
+# Equivalent YAML
+- analysis: "ae_summary"
+  population: ["apat"]
+  observation: ["wk12", "wk24"]
+  parameter: "any;rel;ser"
+```
+
+### 3. Cartesian Product Expansion
+Both generate identical analysis combinations automatically:
+
+```
+ae_summary_apat_wk12_any
+ae_summary_apat_wk12_rel
+ae_summary_apat_wk12_ser
+ae_summary_apat_wk24_any
+ae_summary_apat_wk24_rel
+ae_summary_apat_wk24_ser
 ```
 
 ## Clinical Context for Claude
@@ -124,51 +121,43 @@ AEREL: "AE Relationship to Treatment"
 ## Working with Claude
 
 ### When to Use This Framework
-- Clinical trial TLF generation
+- Clinical trial TLF generation following metalite patterns
 - Regulatory submission preparation
-- Cross-study standardization
-- Safety analysis automation
-- Efficacy endpoint reporting
+- Cartesian product analysis planning
+- Safety/efficacy analysis automation
+- Study-specific analysis specification
 
 ### Common Claude Tasks
 
-#### 1. Adding New TLF Specifications
+#### 1. Adding New Analysis Plans
 ```yaml
-# Add to study YAML
-new_efficacy_table:
-  type: "table"
-  title: "Primary Efficacy Analysis"
-  data_source: "adeff"
-  population: "itt"
-  group_by: ["TRTA"]
-  summary_vars: ["PRIMARY_ENDPOINT"]
-  output:
-    filename: "t_efficacy_primary.rtf"
+# Add new plan to existing file
+- analysis: "efficacy_primary"
+  population: ["itt", "pp"]
+  observation: ["week24", "eot"]
+  parameter: ["endpoint1", "endpoint2"]
 ```
 
-#### 2. Creating Therapeutic Area Templates
+#### 2. Creating Study-Specific Plans
 ```yaml
-# In ta_oncology.yaml
-oncology_parameters:
-  tumor_response: &tumor_resp
-    name: "TUMOR_RESP"
-    label: "Tumor Response"
-    filter: "EVALFL == 'Y'"
+# New study plan file
+study:
+  name: "ABC456"
+  title: "Phase II Oncology Study"
 
-efficacy_template: &eff_template
-  type: "table"
-  data_source: "adrs"
-  population: *tumor_resp
+plans:
+  - analysis: "tumor_response"
+    population: ["evaluable"]
+    parameter: ["complete", "partial", "stable"]
 ```
 
-#### 3. Study-Specific Customizations
+#### 3. Expanding Analysis Coverage
 ```yaml
-# Override inherited definitions
-populations:
-  modified_safety:
-    name: "MSAFFL"
-    label: "Modified Safety Population"
-    filter: "SAFFL == 'Y' AND TRTSDT IS NOT NULL AND AGE >= 18"
+# Add new timepoints or parameters
+- analysis: "ae_summary"
+  population: ["apat"]
+  observation: ["wk4", "wk8", "wk12", "wk16"]  # Expanded timepoints
+  parameter: "any;rel;ser;sev"  # Added severity
 ```
 
 ### Claude Best Practices
