@@ -100,7 +100,7 @@ class TLFGenerator:
         output_file = output_dir / table_spec.output.filename
 
         print(f"Generating table: {table_spec.title}")
-        print(f"Data source: {table_spec.data_source}")
+        print(f"Data: {table_spec.data}")
         print(f"Population: {table_spec.population}")
 
         # Create placeholder RTF file
@@ -130,7 +130,7 @@ class TLFGenerator:
         output_file = output_dir / listing_spec.output.filename
 
         print(f"Generating listing: {listing_spec.title}")
-        print(f"Data source: {listing_spec.data_source}")
+        print(f"Data: {listing_spec.data}")
         print(f"Population: {listing_spec.population}")
 
         # Create placeholder RTF file
@@ -161,7 +161,7 @@ class TLFGenerator:
 
         print(f"Generating figure: {figure_spec.title}")
         print(f"Plot type: {figure_spec.plot_type}")
-        print(f"Data source: {figure_spec.data_source}")
+        print(f"Data: {figure_spec.data}")
 
         # Create placeholder text file for now
         with open(str(output_file).replace('.rtf', '.txt'), 'w') as f:
@@ -172,29 +172,29 @@ class TLFGenerator:
 
         return str(output_file).replace('.rtf', '.txt')
 
-    def _load_data_source(self, data_source_name: str) -> pl.DataFrame:
+    def _load_data_source(self, data_type: str) -> pl.DataFrame:
         """
         Load data source with caching.
 
         Args:
-            data_source_name: Name of data source in configuration
+            data_type: Type of data source ("subject" or "observation")
 
         Returns:
             pl.DataFrame: Loaded data
 
         Raises:
-            ValueError: If data source not found
+            ValueError: If data type not found
             FileNotFoundError: If data file not found
         """
         # Check cache first
-        if data_source_name in self._data_cache:
-            return self._data_cache[data_source_name]
+        if data_type in self._data_cache:
+            return self._data_cache[data_type]
 
         # Find data source in configuration
-        if data_source_name not in self.config.data_sources:
-            raise ValueError(f"Data source '{data_source_name}' not found in configuration")
+        if data_type not in ["subject", "observation"]:
+            raise ValueError(f"Data type '{data_type}' must be 'subject' or 'observation'")
 
-        data_source = self.config.data_sources[data_source_name]
+        data_source = getattr(self.config.data, data_type)
         data_path = Path(data_source.path)
 
         if not data_path.exists():
@@ -209,7 +209,7 @@ class TLFGenerator:
             raise ValueError(f"Unsupported file format: {data_path.suffix}")
 
         # Cache the data
-        self._data_cache[data_source_name] = df
+        self._data_cache[data_type] = df
 
         return df
 

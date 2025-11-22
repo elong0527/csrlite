@@ -12,7 +12,7 @@ class TLFBase(BaseModel):
     type: Literal["table", "listing", "figure"] = Field(..., description="TLF type")
     title: str = Field(..., description="TLF title")
     subtitle: Optional[str] = Field(default=None, description="TLF subtitle")
-    data_source: str = Field(..., description="Data source identifier")
+    data: Literal["subject", "observation"] = Field(..., description="Data source type (subject or observation level)")
     population: str = Field(..., description="Population identifier")
     output: OutputFormat = Field(..., description="Output formatting")
 

@@ -1,0 +1,32 @@
+# Study XYZ123 - Analysis Plan
+# This file contains only the plan specifications using condensed keyword approach
+
+study:
+  name: "XYZ123"
+  title: "Phase III Study of Drug X vs Placebo"
+
+# Analysis Plans - Using metalite-style condensed format
+plans:
+  # Demographics - Single combination
+  - analysis: "demographics"
+    population: ["safety"]
+    parameter: ["demographics"]
+    # observation not needed for subject-level data
+
+  # AE Summary tables - Cartesian product approach
+  - analysis: "ae_summary"
+    population: ["apat", "safety"]
+    observation: ["wk12", "wk24"]
+    parameter: "any;rel;ser"  # Semicolon-separated for single combination
+
+  # AE Specific analysis - Multiple parameters as list
+  - analysis: "ae_specific"
+    population: ["apat"]
+    observation: ["wk12", "wk24"]
+    parameter: ["any", "aeosi", "rel", "ser"]  # List for multiple combinations
+
+  # Listings
+  - analysis: "ae_listing"
+    population: ["safety"]
+    observation: ["wk12"]
+    parameter: ["ser"]  # Serious AE listing only

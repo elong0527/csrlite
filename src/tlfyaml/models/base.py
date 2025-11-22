@@ -30,9 +30,14 @@ class Parameter(BaseModel):
 
 class DataSource(BaseModel):
     """Defines a data source (ADaM dataset)."""
-    name: str = Field(..., description="Data source identifier")
     path: str = Field(..., description="File path to dataset")
     source: str = Field(..., description="ADaM domain name (e.g., ADSL, ADAE)")
+
+
+class DataSources(BaseModel):
+    """Defines the two standard data sources for TLF generation."""
+    subject: DataSource = Field(..., description="Subject-level dataset (e.g., ADSL)")
+    observation: DataSource = Field(..., description="Observation-level dataset (e.g., ADAE, ADVS)")
 
 
 class Treatment(BaseModel):

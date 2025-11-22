@@ -4,8 +4,9 @@ Configuration models for different hierarchy levels.
 
 from typing import List, Dict, Optional, Union, Any
 from pydantic import BaseModel, Field
-from .base import Variable, Population, Parameter, DataSource, Treatment
+from .base import Variable, Population, Parameter, DataSources, Treatment
 from .tlf import Table, Listing, Figure
+from .mock import MockUnion, Plan, Observation
 
 
 class OrganizationConfig(BaseModel):
@@ -33,11 +34,18 @@ class TherapeuticAreaConfig(BaseModel):
 class StudyConfig(BaseModel):
     """Study-level configuration with full inheritance resolution."""
     study: Dict[str, str] = Field(..., description="Study metadata")
-    data_sources: Dict[str, DataSource] = Field(..., description="Study data sources")
+    data: DataSources = Field(..., description="Study data sources (subject and observation)")
     treatments: Optional[Dict[str, Treatment]] = Field(default=None, description="Study treatments")
     populations: Optional[Dict[str, Population]] = Field(default=None, description="Study populations")
+    observations: Optional[Dict[str, Observation]] = Field(default=None, description="Study observation periods")
     parameters: Optional[Dict[str, Any]] = Field(default=None, description="Study parameters")
-    tlfs: Dict[str, Union[Table, Listing, Figure]] = Field(..., description="TLF specifications")
+
+    # New mock/plan structure
+    mocks: Optional[Dict[str, MockUnion]] = Field(default=None, description="Mock templates")
+    plans: Optional[List[Plan]] = Field(default=None, description="Plan specifications")
+
+    # Legacy TLF structure (for backward compatibility)
+    tlfs: Optional[Dict[str, Union[Table, Listing, Figure]]] = Field(default=None, description="Legacy TLF specifications")
 
     # Inherited fields from organization and TA levels
     organization: Optional[Dict[str, str]] = Field(default=None, description="Organization metadata")
