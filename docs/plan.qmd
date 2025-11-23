@@ -1,7 +1,7 @@
 ---
 title: "Planning"
-
-
+execute:
+  echo: true
 ---
 
 ```{python}
