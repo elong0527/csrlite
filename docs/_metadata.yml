@@ -1,0 +1,9 @@
+author: "Yilong Zhang"
+date: today
+date-format: "YYYY-MM-DD"
+license: "MIT"
+bibliography: references.bib
+citation:
+  title: "TLF YAML Framework"
+  type: software
+  url: https://github.com/elong0527/demo-tlf-yaml

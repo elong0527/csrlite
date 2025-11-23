@@ -1,0 +1,59 @@
+project:
+  type: website
+  output-dir: _site
+
+website:
+  title: "YAML for Clinical A&R"
+  description: "A Review Oriented Development Framework using YAML and AI for Clinical Analysis and Reporting"
+  site-url: https://elong0527.github.io/demo-tlf-yaml
+  repo-url: https://github.com/elong0527/demo-tlf-yaml
+
+  navbar:
+    background: primary
+    left:
+      - href: index.qmd
+        text: Home
+      - text: Examples
+        menu:
+          - href: plan.qmd
+            text: Plan Structure
+          - href: inheritance.qmd
+            text: Template Inheritance
+
+    right:
+      - icon: github
+        href: https://github.com/elong0527/demo-tlf-yaml
+
+  sidebar:
+    style: docked
+    search: true
+    contents:
+      - section: "Examples"
+        contents:
+          - plan.qmd
+          - inheritance.qmd
+
+format:
+  html:
+    theme:
+      - cosmo
+      - custom.scss
+    toc: true
+    toc-depth: 3
+    toc-location: right
+    code-fold: true
+    code-tools: true
+    grid:
+      sidebar-width: 250px
+      body-width: 900px
+      margin-width: 250px
+      gutter-width: 1.5rem
+
+execute:
+  freeze: auto
+  cache: true
+
+jupyter: python3
+
+metadata-files:
+  - _metadata.yml

@@ -1,0 +1,79 @@
+/*-- scss:defaults --*/
+
+// Color scheme
+$primary: #2780e3 !default;
+$secondary: #6c757d !default;
+$success: #28a745 !default;
+$info: #17a2b8 !default;
+$warning: #ffc107 !default;
+$danger: #dc3545 !default;
+$light: #f8f9fa !default;
+$dark: #343a40 !default;
+
+// Typography
+$font-family-monospace: 'Source Code Pro', 'Courier New', monospace !default;
+
+/*-- scss:rules --*/
+
+// Code blocks
+pre {
+  border: 1px solid #e9ecef;
+  border-radius: 0.25rem;
+  background-color: #f8f9fa;
+}
+
+// YAML syntax highlighting
+.sourceCode .yaml {
+  .at { color: #d73a49; } // @ symbols
+  .kw { color: #005cc5; } // keywords
+  .st { color: #032f62; } // strings
+  .co { color: #6a737d; font-style: italic; } // comments
+}
+
+// Table styling
+.table {
+  font-size: 0.9rem;
+}
+
+.table th {
+  border-top: none;
+  border-bottom: 2px solid #dee2e6;
+  background-color: #f8f9fa;
+}
+
+// Sidebar styling
+.sidebar nav[role=doc-toc] ul > li > a {
+  padding: 0.25rem 0.5rem;
+  margin: 0.125rem 0;
+  border-radius: 0.25rem;
+}
+
+.sidebar nav[role=doc-toc] ul > li > a:hover {
+  background-color: rgba(39, 128, 227, 0.1);
+}
+
+// Custom callouts for clinical content
+.callout.callout-clinical {
+  border-left: 5px solid #28a745;
+  border-left-color: #28a745;
+}
+
+.callout.callout-clinical .callout-title {
+  background-color: rgba(40, 167, 69, 0.1);
+}
+
+// Code output styling
+.cell-output {
+  border: 1px solid #e9ecef;
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+  margin: 0.5rem 0;
+  background-color: #ffffff;
+}
+
+.cell-output pre {
+  border: none;
+  background-color: transparent;
+  margin: 0;
+  padding: 0;
+}

@@ -1,0 +1,159 @@
+---
+title: "Template Inheritance"
+---
+
+## Overview
+
+Template inheritance allows organizations to create reusable keyword definitions that can be shared across therapeutic areas and studies while maintaining study-specific flexibility.
+
+## Inheritance Hierarchy
+
+```
+Organization Templates
+    ↓
+Therapeutic Area Templates
+    ↓
+Study Plans
+```
+
+## Organization Template
+
+Create base definitions that apply across all studies:
+
+**`organization.yaml`**
+```yaml
+population:
+  - name: apat
+    label: "All Participants as Treated"
+  - name: itt
+    label: "Intention-to-Treat"
+
+parameter:
+  - name: any
+    label: "Any Adverse Event"
+  - name: rel
+    label: "Related Adverse Events"
+  - name: ser
+    label: "Serious Adverse Events"
+```
+
+## Study Plan Inheritance
+
+Reference the template and add study-specific details:
+
+**`plan_xyz123.yaml`**
+```yaml
+study:
+  name: "XYZ123"
+  template:
+    - organization.yaml
+
+# Study-specific parameter filters
+parameter:
+  - name: any
+    filter: "adae:trtemfl == 'Y'"
+  - name: rel
+    filter: "adae:trtemfl == 'Y' and adae:aerel in ['RELATED', 'PROBABLY RELATED']"
+```
+
+## Field-Level Inheritance
+
+The system performs intelligent field-level merging:
+
+### Template Provides
+- Labels for consistent naming
+- Base filter logic
+- Standard descriptions
+
+### Study Overrides/Adds
+- Specific filter expressions
+- Study-specific keywords
+- Custom descriptions
+
+### Example Resolution
+
+```python
+# Template: organization.yaml
+parameter:
+  - name: any
+    label: "Any Adverse Event"
+
+# Study: plan_xyz123.yaml
+parameter:
+  - name: any
+    filter: "adae:trtemfl == 'Y'"
+
+# Final merged result:
+parameter:
+  - name: any
+    label: "Any Adverse Event"        # From template
+    filter: "adae:trtemfl == 'Y'"     # From study
+```
+
+## Loading with Inheritance
+
+```python
+from tlfyaml import load_plan
+
+# Load plan with template inheritance
+study_plan = load_plan('examples/yaml/plan_xyz123.yaml')
+
+# Check what was inherited
+keywords = study_plan.keywords
+
+# Verify template labels are preserved
+any_param = keywords.get_parameter('any')
+print(f"Label: {any_param.label}")      # From template
+print(f"Filter: {any_param.filter}")    # From study
+```
+
+## Advanced Patterns
+
+### Multiple Templates
+
+```yaml
+study:
+  template:
+    - organization.yaml
+    - ta_oncology.yaml
+    - safety_common.yaml
+```
+
+Templates are loaded in order with later templates able to override earlier ones.
+
+### Conditional Inheritance
+
+Study plans can completely override template definitions when needed:
+
+```yaml
+# Study completely replaces template definition
+parameter:
+  - name: ser
+    label: "Study-Specific Serious AE Definition"
+    description: "Different from organization standard"
+    filter: "custom_logic == 'Y'"
+```
+
+## Benefits
+
+### 1. Consistency
+- Organization-wide keyword standards
+- Consistent labeling across studies
+- Regulatory compliance templates
+
+### 2. Efficiency
+- Reduce duplication
+- Faster study setup
+- Standardized filters
+
+### 3. Maintenance
+- Update templates to affect all studies
+- Version control for standards
+- Clear inheritance chain
+
+### 4. Flexibility
+- Study-specific customizations
+- Override capability when needed
+- Gradual migration of standards
+
+This inheritance system provides the perfect balance of standardization and flexibility for large-scale clinical trial operations.
