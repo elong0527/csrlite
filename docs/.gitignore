@@ -3,3 +3,5 @@ _site/
 *.html
 *.pdf
 /.quarto/
+_freeze/
+.jupyter_cache/
