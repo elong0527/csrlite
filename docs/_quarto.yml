@@ -3,7 +3,7 @@ project:
   output-dir: _site
 
 website:
-  title: "YAML for Clinical A&R"
+  title: "ROD"
   description: "A Review Oriented Development Framework using YAML and AI for Clinical Analysis and Reporting"
   site-url: https://elong0527.github.io/demo-tlf-yaml
   repo-url: https://github.com/elong0527/demo-tlf-yaml
@@ -13,12 +13,6 @@ website:
     left:
       - href: index.qmd
         text: Home
-      - text: Examples
-        menu:
-          - href: plan.qmd
-            text: Plan Structure
-          - href: inheritance.qmd
-            text: Template Inheritance
 
     right:
       - icon: github
@@ -28,10 +22,8 @@ website:
     style: docked
     search: true
     contents:
-      - section: "Examples"
-        contents:
-          - plan.qmd
-          - inheritance.qmd
+        - plan.qmd
+        - inheritance.qmd
 
 format:
   html:
@@ -54,6 +46,3 @@ execute:
   cache: true
 
 jupyter: python3
-
-metadata-files:
-  - _metadata.yml

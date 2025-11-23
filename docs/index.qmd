@@ -1,9 +1,6 @@
 ---
-title: "YAML Framework for Clinical Analysis and Reporting"
-subtitle: "Clinical Trial Tables, Listings, and Figures from YAML"
+title: "Review Oriented Development"
 ---
-
-# Review Oriented Development (ROD)
 
 ## Review Gap 
 With powerful LLMs, code and document generation is instant; however, the bottleneck has shifted to the review phase. 
@@ -29,13 +26,19 @@ will be essential to deliver A&R results that is reproducible and compliant.
 ::: callout-tip
 ## Objective
 
-Implement a hierarchical YAML-based Review-Oriented Development (ROD) framework within the Biometrics team powered by LLMs.
+Implement a hierarchical YAML-based Review-Oriented Development (ROD) framework within the Biometrics team powered by LLMs. ([Learn more](plan.qmd))
 :::
+
+::: {layout-ncol="2"}
+![](images/plan.png){group="a"}
+:::
+
+
 
 # Key Business Benefits 
 
  | Benefit Category | Impact |
- | :--------------- | :----- |
+ | :-- | :----- |
  | Efficiency | Accelerated Time-to-Insight: Reduces review cycles by focusing on high-level logic rather than low-level syntax. |
  | Compliance | Audit-Ready by Default: YAML files serve as a self-documenting history of exactly what analysis was requested and performed. |
  | Quality | Enhanced Integrity: Removes the variability of code styles. If the configuration is correct, the output is guaranteed to match the standard. |

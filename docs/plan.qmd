@@ -1,5 +1,5 @@
 ---
-title: "Plan Structure Examples"
+title: "Planning"
 ---
 
 ## Complete Plan File
