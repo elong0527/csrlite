@@ -66,11 +66,13 @@ population:
 
 parameter:
   - name: any
-    label: "Any One or More Adverse Events" # test override label.
+    label: "with one or more adverse events"
     filter: "adae:trtemfl == 'Y'"
   - name: rel
-    filter: "adae:trtemfl == 'Y' and adae:aerel in ['RELATED', 'PROBABLY RELATED', 'POSSIBLY RELATED']"
+    label: "with drug-related^a adverse events"
+    filter: "adae:trtemfl == 'Y' and adae:aerel in ['PROBABLE', 'POSSIBLE']"
   - name: ser
+    label: "with serious adverse events"
     filter: "adae:trtemfl == 'Y' and adae:aeser == 'Y'"
 
 data:

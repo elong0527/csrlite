@@ -8,6 +8,7 @@ from .ae_analysis import (
     ae_summary,
     ae_specific,
     ae_listing,
+    ae_summary_to_rtf,
 )
 
 # Main exports for common usage
@@ -18,4 +19,5 @@ __all__ = [
     "ae_summary",
     "ae_specific",
     "ae_listing",
+    "ae_summary_to_rtf",
 ]

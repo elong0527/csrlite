@@ -14,6 +14,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import polars as pl
 
+from rtflite import RTFBody, RTFColumnHeader, RTFDocument, RTFSource, RTFTitle
+
 from .plan import StudyPlan
 
 
@@ -55,14 +57,13 @@ def parse_filter_to_sql(filter_str: str) -> str:
     return sql
 
 
-def apply_filter_sql(df: pl.DataFrame, filter_str: str, table_name: str = "t") -> pl.DataFrame:
+def apply_filter_sql(df: pl.DataFrame, filter_str: str) -> pl.DataFrame:
     """
     Apply filter using pl.sql_expr() - simpler and faster than SQLContext.
 
     Args:
         df: DataFrame to filter
         filter_str: Custom filter string
-        table_name: Table alias (unused, kept for backward compatibility)
 
     Returns:
         Filtered DataFrame
@@ -413,6 +414,293 @@ def ae_summary(
     )
 
     return result
+
+
+def calculate_parameter_summary(
+    study_plan: StudyPlan,
+    population: str,
+    observation: Optional[str] = None,
+    parameters: List[str] = None,
+    group: str = "trt01a",
+) -> Dict[str, Any]:
+    """
+    Calculate summary counts for multiple parameters separately.
+
+    This generates the high-level summary table format showing counts by parameter category.
+
+    Args:
+        study_plan: StudyPlan object with loaded datasets
+        population: Population keyword name
+        observation: Optional observation keyword
+        parameters: List of parameter names to calculate separately
+        group: Group keyword name
+
+    Returns:
+        Dictionary with n_pop and parameter_counts per group
+    """
+    # Get datasets
+    adsl = study_plan.datasets.get("adsl")
+    adae = study_plan.datasets.get("adae")
+    if adsl is None or adae is None:
+        raise ValueError("ADSL and ADAE datasets required")
+
+    # Get population filter
+    pop = study_plan.keywords.get_population(population)
+    if pop is None:
+        raise ValueError(f"Population '{population}' not found")
+    population_filter = parse_filter_to_sql(pop.filter)
+
+    # Get group variable
+    grp = study_plan.keywords.get_group(group)
+    if grp is None:
+        raise ValueError(f"Group '{group}' not found")
+    group_var = grp.variable.split(":")[-1].upper()
+    group_labels = grp.group_label if grp.group_label else []
+
+    # Apply population filter
+    adsl_pop = adsl.filter(pl.sql_expr(population_filter))
+
+    # Calculate denominators
+    n_pop = adsl_pop.group_by(group_var).agg(pl.len().alias("n")).sort(group_var)
+
+    # Get observation filter
+    obs_filter = None
+    if observation:
+        obs = study_plan.keywords.get_observation(observation)
+        if obs:
+            obs_filter = parse_filter_to_sql(obs.filter)
+
+    # Calculate counts for each parameter separately
+    param_results = []
+    for param_name in parameters:
+        param = study_plan.keywords.get_parameter(param_name)
+        if param is None:
+            raise ValueError(f"Parameter '{param_name}' not found")
+
+        param_filter = parse_filter_to_sql(param.filter)
+
+        # Build filter expression
+        filter_expr = pl.sql_expr(param_filter)
+        if obs_filter:
+            filter_expr = filter_expr & pl.sql_expr(obs_filter)
+
+        # Filter AE data
+        ae_filtered = adae.filter(filter_expr)
+
+        # Filter to population subjects
+        pop_subjects = adsl_pop.select("USUBJID")
+        ae_filtered = ae_filtered.join(pop_subjects, on="USUBJID", how="inner")
+
+        # Merge treatment group
+        ae_with_trt = ae_filtered.join(
+            adsl_pop.select(["USUBJID", group_var]), on="USUBJID", how="left"
+        )
+
+        # Count unique subjects per group
+        param_counts = (
+            ae_with_trt.group_by(group_var)
+            .agg(pl.n_unique("USUBJID").alias("n_subj"))
+            .join(n_pop, on=group_var, how="right")
+            .with_columns(pl.col("n_subj").fill_null(0))
+            .sort(group_var)
+        )
+
+        param_results.append({
+            "parameter": param_name,
+            "label": param.label or param_name,
+            "counts": param_counts,
+        })
+
+    return {
+        "n_pop": n_pop,
+        "parameters": param_results,
+        "group_var": group_var,
+        "group_labels": group_labels,
+    }
+
+
+def ae_summary_to_rtf(
+    result: Dict[str, Any],
+    study_plan: Optional[StudyPlan] = None,
+    title: Optional[str] = None,
+    subtitle: Optional[List[str]] = None,
+    output_file: Optional[str] = None,
+    col_widths: Optional[List[float]] = None,
+) -> str:
+    """
+    Convert ae_summary result to RTF summary table format using rtflite.
+
+    Generates a high-level summary table showing counts and percentages of subjects
+    with adverse events by parameter category (any AE, drug-related AE, serious AE, etc.).
+    This matches the format of metalite.ae's prepare_ae_summary() output.
+
+    Args:
+        result: Dictionary from ae_summary() - used to extract metadata
+        study_plan: StudyPlan object (required for accurate per-parameter counts)
+        title: Main title for the table (default: "Summary of Adverse Events")
+        subtitle: Optional list of subtitle lines (e.g., ["Weeks 0 to 12", "All Participants as Treated"])
+        output_file: Optional file path to write RTF output (if None, returns RTF string only)
+        col_widths: Optional list of relative column widths (default: auto-calculated)
+
+    Returns:
+        RTF document as string
+
+    Raises:
+        ImportError: If rtflite is not installed
+        ValueError: If study_plan is not provided or result is invalid
+
+    Example:
+        >>> result = ae_summary(study_plan, "apat", parameter="any;rel;ser")
+        >>> rtf_string = ae_summary_to_rtf(
+        ...     result,
+        ...     study_plan=study_plan,
+        ...     subtitle=["Weeks 0 to 12", "All Participants as Treated"],
+        ...     output_file="ae_summary.rtf"
+        ... )
+    """
+    if not RTFLITE_AVAILABLE:
+        raise ImportError(
+            "rtflite is required for RTF output. Install it with: pip install rtflite"
+        )
+
+    if study_plan is None:
+        raise ValueError("study_plan is required for accurate parameter-level counts")
+
+    # Extract metadata from result
+    meta = result.get("meta", {})
+    population = meta.get("population")
+    observation = meta.get("observation")
+    parameters = meta.get("parameter", [])
+    group = meta.get("group")
+
+    if not population or not group:
+        raise ValueError("Result must contain population and group in metadata")
+
+    # Calculate per-parameter summary
+    summary_data = calculate_parameter_summary(
+        study_plan=study_plan,
+        population=population,
+        observation=observation,
+        parameters=parameters,
+        group=group,
+    )
+
+    n_pop_df = summary_data["n_pop"]
+    param_results = summary_data["parameters"]
+    group_var = summary_data["group_var"]
+    group_labels = summary_data.get("group_labels", [])
+
+    # Get treatment groups
+    groups = n_pop_df[group_var].to_list()
+    n_values = n_pop_df["n"].to_list()
+
+    # Use actual group values as labels if group_labels is empty
+    if not group_labels or len(group_labels) == 0:
+        group_labels = groups
+
+    # Build display data
+    display_data = []
+
+    # First row: Population denominators (n only, no percentage)
+    pop_row = {"Category": "Participants in population"}
+    for i, label in enumerate(group_labels):
+        pop_row[label] = str(n_values[i])
+    total_n = sum(n_values)
+    pop_row["Total"] = str(total_n)
+    display_data.append(pop_row)
+
+    # Subsequent rows: One row per parameter with n (%)
+    for param_result in param_results:
+        param_label = param_result["label"]
+        param_counts_df = param_result["counts"]
+
+        # Extract counts
+        param_row = {"Category": f"  {param_label.lower()}"}
+        total_subj = 0
+
+        for i, (grp, label) in enumerate(zip(groups, group_labels)):
+            # Get count for this group
+            grp_row = param_counts_df.filter(pl.col(group_var) == grp)
+            if len(grp_row) > 0:
+                n_subj = int(grp_row["n_subj"][0])
+            else:
+                n_subj = 0
+
+            n_pop = n_values[i]
+            pct = (n_subj / n_pop * 100) if n_pop > 0 else 0
+            param_row[label] = f"{n_subj} ({pct:.1f})"
+            total_subj += n_subj
+
+        total_pct = (total_subj / total_n * 100) if total_n > 0 else 0
+        param_row["Total"] = f"{total_subj} ({total_pct:.1f})"
+        display_data.append(param_row)
+
+    # Convert to DataFrame
+    display_df = pl.DataFrame(display_data)
+
+    # Create title text
+    if title is None:
+        title_text = "Summary of Adverse Events"
+    else:
+        title_text = title
+
+    # Add subtitles if provided
+    if subtitle:
+        title_lines = [title_text] + subtitle
+        title_text = "\n".join(title_lines)
+
+    # Create column headers
+    col_headers = [""]  # First column is category
+    for label in group_labels:
+        col_headers.append(f"{label}")
+    col_headers.append("Total")
+
+    # Add second header row with n and (%)
+    col_headers_2 = [""]
+    for _ in group_labels:
+        col_headers_2.append("n\n(%)")
+    col_headers_2.append("n\n(%)")
+
+    # Determine column widths
+    n_cols = len(display_df.columns)
+    if col_widths is None:
+        # Auto-calculate: first column wider, rest equal
+        first_col_width = 3.5
+        other_col_width = 1.0
+        col_widths = [first_col_width] + [other_col_width] * (n_cols - 1)
+
+    # Create RTF document
+    doc = RTFDocument(
+        df=display_df,
+        rtf_title=RTFTitle(text=title_text, text_font_size=11, text_format="b"),
+        rtf_column_header=[
+            RTFColumnHeader(
+                text=col_headers,
+                text_font_size=9,
+                text_justification=["l"] + ["c"] * (n_cols - 1),
+            ),
+            RTFColumnHeader(
+                text=col_headers_2,
+                text_font_size=9,
+                text_justification=["l"] + ["c"] * (n_cols - 1),
+            ),
+        ],
+        rtf_body=RTFBody(
+            col_rel_width=col_widths,
+            text_justification=["l"] + ["c"] * (n_cols - 1),
+            text_font_size=9,
+        ),
+        rtf_source=RTFSource(text="Source: [CDISCpilot: adam-adsl; adae]", text_font_size=8),
+    )
+
+    # Generate RTF string
+    rtf_string = doc.rtf_encode()
+
+    # Write to file if specified
+    if output_file:
+        doc.write_rtf(output_file)
+
+    return rtf_string
 
 
 def ae_specific_core(

@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path.cwd().parent / 'src'))
 ```
 
 ```{python}
-from tlfyaml import load_plan, ae_summary, ae_specific, ae_listing
+from tlfyaml import load_plan, ae_summary, ae_specific, ae_listing, ae_summary_to_rtf
 ```
 
 ## Load Study Plan
@@ -55,9 +55,7 @@ result_summary
 ### Display Metadata
 
 ```{python}
-print("Analysis Metadata:")
-for key, value in result_summary["meta"].items():
-    print(f"  {key}: {value}")
+result_summary["meta"]
 ```
 
 ### Population Denominators
@@ -128,4 +126,28 @@ result_listing = ae_listing(
 
 ```{python}
 result_listing["column_labels"]
+```
+
+## Generate RTF Table Output
+
+The `ae_summary_to_rtf()` function converts AE summary results into production-ready RTF tables using the rtflite package. The output format matches the metalite.ae R package style, suitable for regulatory submissions.
+
+```{python}
+# Generate AE summary with multiple parameters
+result_summary_multi = ae_summary(
+    study_plan=study_plan,
+    population="apat",
+    observation=None,
+    parameter="any;rel;ser",  # Semicolon-separated for multiple parameters
+    group="trt01a"
+)
+
+# Generate RTF table from AE summary result
+rtf_output = ae_summary_to_rtf(
+    result_summary_multi,
+    study_plan=study_plan,
+    title="Summary of Adverse Events",
+    subtitle=["Weeks 0 to 12", "All Participants as Treated"],
+    output_file="../ae_summary.rtf"
+)
 ```
