@@ -1,0 +1,38 @@
+# Review Oriented Development (ROD)
+
+## Review Gap 
+
+With powerful LLMs, code and document generation is instant. However, the bottleneck has shifted to the review phase.
+
+::: callout-caution
+Without a structured review framework, the speed gained by AI is lost in manual, error-prone verification cycles.
+:::
+
+This is critical in Biopharma, where the cost of error is not just a bug, but a regulatory finding or patient safety risk. We cannot afford "hallucinations" in clinical data.
+
+# Shifting to ROD
+
+Generative AI has fundamentally inverted the software development lifecycle. 
+Developers are no longer strictly writers of code; they are now auditors of AI-generated content. 
+Existing tools and processes are optimized for writing, not reviewing.
+
+For an organization with multiple candidate compounds and clinical studies in different phases, 
+a review oriented, AI powered, human-in-loop process built on top of propritory and open source tools 
+will be essential to deliver A&R results that is reproducible and compliant.  
+
+# Solutions
+
+::: callout-tip
+## Objective
+
+Implement a hierarchical YAML-based Review-Oriented Development (ROD) framework within the Biometrics team powered by LLMs.
+:::
+
+# Key Business Benefits 
+
+ | Benefit Category | Impact |
+ | :--------------- | :----- |
+ | Efficiency | Accelerated Time-to-Insight: Reduces review cycles by focusing on high-level logic rather than low-level syntax. |
+ | Compliance | Audit-Ready by Default: YAML files serve as a self-documenting history of exactly what analysis was requested and performed. |
+ | Quality | Enhanced Integrity: Removes the variability of code styles. If the configuration is correct, the output is guaranteed to match the standard. |
+ | Scalability | AI-Native Workflow: Prepares the organization to scale AI adoption safely by having guardrails firmly in place. |
