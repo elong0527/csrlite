@@ -1,8 +1,7 @@
 # Review Oriented Development (ROD)
 
 ## Review Gap 
-
-With powerful LLMs, code and document generation is instant. However, the bottleneck has shifted to the review phase.
+With powerful LLMs, code and document generation is instant; however, the bottleneck has shifted to the review phase. 
 
 ::: callout-caution
 Without a structured review framework, the speed gained by AI is lost in manual, error-prone verification cycles.
