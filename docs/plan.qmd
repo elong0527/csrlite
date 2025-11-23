@@ -79,8 +79,116 @@ study_plan.get_parameter_df()
 study_plan.get_group_df()
 ```
 
-# Human-in-loop 
+# Human-in-loop
+
+The YAML framework creates a structured workflow where humans maintain control over critical decisions while leveraging AI for automation:
+
+Human review (paired with a review agent) responsibility can be like.
+
+### 1. **Scientific Validation**
+- Verify analysis plans align with study protocol and statistical analysis plan (SAP)
+- Confirm population definitions match regulatory requirements (e.g., safety population vs. ITT)
+- Validate parameter specifications capture the intended clinical outcomes
+
+### 2. **Template Governance**
+- Approve organization and TA templates through version control.
+
+etc... 
+
+The framework ensures that while AI accelerates implementation, humans remain in control of all critical scientific and regulatory decisions.
+
+# GenAI
+
+GenAI transforms the development process by working from structured YAML specifications rather than free-form requirements:
+
+## AI-Powered Workflow
+
+### 1. **YAML Generation from Natural Language**
+```yaml
+# Human: "Create AE analysis plan for oncology study with standard safety endpoints"
+# AI Output:
+plans:
+  - analysis: "ae_summary"
+    population: "apat"
+    observation: ["week12", "week24"]
+    parameter: "any;rel;ser"
+    group: "trt01a"
+
+  - analysis: "ae_specific"
+    population: "apat"
+    observation: ["week12", "week24"]
+    parameter: ["any", "rel", "ser"]  # Cartesian expansion
+    group: "trt01a"
+```
+
+### 2. **Code Generation from YAML**
+AI converts approved YAML specifications into production-ready code:
+
+```python
+# AI generates function implementations
+def ae_summary(population="apat", observation="week12", parameter="any;rel;ser"):
+    """Generate AE summary table from YAML specification."""
+
+    # Extract filters from keywords
+    pop_filter = keywords.get_population(population).filter
+    obs_filter = keywords.get_observation(observation).filter
+
+    # Apply combined parameter logic
+    param_filters = [keywords.get_parameter(p).filter for p in parameter.split(';')]
+
+    # Generate table
+    return create_summary_table(pop_filter, obs_filter, param_filters)
+```
+
+### 3. **Documentation and Validation**
+- **Auto-generate table shells** with proper headers and formatting
+- **Create validation scripts** based on filter specifications
+- **Generate regulatory documentation** (e.g., analysis specifications)
+
+## AI Advantages in this Framework
+
+::: callout-tip
+### Structured Approach Benefits
+- **Reduced Hallucinations**: AI works from precise specifications, not ambiguous requirements
+- **Consistency**: Same YAML always produces identical code implementations
+- **Auditability**: Clear traceability from YAML specification to generated output
+:::
 
 
+## Human-AI Collaboration Points
 
-# AI 
+| **Task** | **Human Input** | **AI Output** | **Human Review** |
+|----------|-----------------|---------------|------------------|
+| Plan Creation | Protocol requirements | YAML structure | Approve/modify specifications |
+| Implementation | Approved YAML | Production code | Code review and testing |
+| Documentation | Scientific context | Auto-generated docs | Final approval and sign-off |
+| Validation | Expected outcomes | Test scenarios | Results verification |
+
+## Quality Safeguards
+
+### 1. **Specification-First Development**
+- AI cannot generate code without approved YAML specifications
+- All changes tracked through version control
+- Clear separation between "what" (YAML) and "how" (code)
+
+### 2. **Template-Driven Consistency**
+- AI leverages organization templates for standardized approaches
+- Reduced variability across studies and therapeutic areas
+- Built-in compliance with regulatory requirements
+
+### 3. **Automated Validation**
+```python
+# AI generates validation checks from YAML
+def validate_ae_analysis(yaml_spec, output_data):
+    """Validate generated analysis against YAML specification."""
+
+    # Check population filters
+    expected_n = apply_filter(source_data, yaml_spec['population'])
+    assert len(output_data) == len(expected_n)
+
+    # Verify parameter logic
+    # ... additional validation based on YAML
+```
+
+This GenAI integration ensures that artificial intelligence amplifies human expertise rather than replacing human judgment, creating a reliable and scalable framework for clinical analysis and reporting.
+
