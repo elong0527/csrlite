@@ -154,16 +154,6 @@ def ae_summary(population="apat", observation="week12", parameter="any;rel;ser")
 - **Auditability**: Clear traceability from YAML specification to generated output
 :::
 
-
-## Human-AI Collaboration Points
-
-| **Task** | **Human Input** | **AI Output** | **Human Review** |
-|----------|-----------------|---------------|------------------|
-| Plan Creation | Protocol requirements | YAML structure | Approve/modify specifications |
-| Implementation | Approved YAML | Production code | Code review and testing |
-| Documentation | Scientific context | Auto-generated docs | Final approval and sign-off |
-| Validation | Expected outcomes | Test scenarios | Results verification |
-
 ## Quality Safeguards
 
 ### 1. **Specification-First Development**
