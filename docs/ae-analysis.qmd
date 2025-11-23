@@ -1,0 +1,302 @@
+---
+title: "Adverse Event Analysis"
+---
+
+::: {.callout-note}
+## Learning Objectives
+
+This tutorial demonstrates how to use the `tlfyaml` package to generate adverse event (AE) analysis outputs for clinical study reports:
+
+- Generate **AE summary tables** with hierarchical SOC/PT display
+- Create **specific AE analysis** with clinical context
+- Produce **patient-level AE listings** with demographics
+
+The framework uses **Polars native SQL** for data manipulation and integrates with YAML-driven study plans.
+:::
+
+## Overview
+
+Adverse event analysis is a critical component of clinical study reports and regulatory submissions. The framework provides three core functions modeled after the R package **metalite.ae**:
+
+1. **`ae_summary()`** - Summary tables showing counts and percentages of adverse events by treatment group, organized by System Organ Class (SOC) and Preferred Term (PT)
+
+2. **`ae_specific()`** - Specific AE analysis with detailed SOC→PT hierarchical breakdown, including optional severity stratification
+
+3. **`ae_listing()`** - Patient-level listings with comprehensive demographics and clinical details (severity, seriousness, relationship, action taken, outcome)
+
+All functions leverage **Polars SQLContext** for efficient data processing and use custom filter syntax that translates to standard SQL.
+
+## Setup
+
+First, let's import the required packages and load our study plan.
+
+```{python}
+#| message: false
+import sys
+from pathlib import Path
+import polars as pl
+
+# Add src to path for imports
+sys.path.insert(0, str(Path.cwd().parent / 'src'))
+
+from tlfyaml import load_plan, ae_summary, ae_specific, ae_listing
+```
+
+## Step 1: Load Study Plan
+
+The study plan is defined in YAML format with template inheritance. It contains population definitions, observation periods, parameters, and data source specifications.
+
+```{python}
+# Load study plan from YAML
+plan_path = Path.cwd().parent / 'examples' / 'yaml' / 'plan_xyz123.yaml'
+study_plan = load_plan(str(plan_path))
+
+print(f"Study: {study_plan.study_data['study']['name']}")
+print(f"Condensed plans: {len(study_plan.study_data.get('plans', []))}")
+print(f"Individual analyses: {len(study_plan.get_plan_df())}")
+```
+
+## Step 2: Explore Available Keywords
+
+Let's examine the populations, parameters, and groups defined in the study plan.
+
+```{python}
+# Display analysis populations
+print("Analysis Populations:")
+print(study_plan.get_population_df())
+```
+
+```{python}
+# Display analysis parameters
+print("\nAnalysis Parameters:")
+print(study_plan.get_parameter_df())
+```
+
+```{python}
+# Display treatment groups
+print("\nTreatment Groups:")
+print(study_plan.get_group_df())
+```
+
+## Step 3: Generate AE Summary Table
+
+The `ae_summary()` function generates summary tables with counts and percentages by treatment group. It uses the **first occurrence flags** (AOCCFL, AOCCSFL, AOCCPFL) to count unique subjects rather than events.
+
+```{python}
+# Generate AE summary for treatment-emergent AEs
+result_summary = ae_summary(
+    study_plan=study_plan,
+    population="apat",        # All Participants As Treated
+    observation=None,         # All observations (no time restriction)
+    parameter="any",          # Any adverse event
+    group="trt01a"           # Treatment group variable
+)
+```
+
+### Display Metadata
+
+```{python}
+print("Analysis Metadata:")
+for key, value in result_summary["meta"].items():
+    print(f"  {key}: {value}")
+```
+
+### Population Denominators
+
+The denominators show the number of subjects in each treatment group.
+
+```{python}
+print("\nPopulation Denominators:")
+print(result_summary["n_pop"])
+```
+
+### AE Summary Results
+
+The summary table shows both SOC-level and PT-level counts with percentages. Results are sorted by frequency (highest to lowest).
+
+```{python}
+# Display first 30 rows of AE summary
+print("\nAE Summary (first 30 rows):")
+print(result_summary["summary"].head(30))
+```
+
+### Summary Statistics
+
+```{python}
+summary_df = result_summary["summary"]
+
+n_soc = summary_df.filter(pl.col("level") == "SOC").height
+n_pt = summary_df.filter(pl.col("level") == "PT").height
+
+print(f"\nSummary Statistics:")
+print(f"  Total SOC levels: {n_soc}")
+print(f"  Total PT levels: {n_pt}")
+print(f"  Treatment groups: {', '.join(result_summary['group_labels'])}")
+```
+
+## Step 4: Generate Specific AE Analysis
+
+The `ae_specific()` function provides detailed analysis of specific adverse events with hierarchical SOC→PT breakdown. It includes optional severity stratification.
+
+```{python}
+# Generate specific AE analysis for related AEs
+result_specific = ae_specific(
+    study_plan=study_plan,
+    population="apat",
+    observation=None,
+    parameter="any",          # Use "any" instead of "rel" to show more results
+    group="trt01a"
+)
+```
+
+### Specific AE Results
+
+```{python}
+print("Specific AE Analysis Metadata:")
+for key, value in result_specific["meta"].items():
+    print(f"  {key}: {value}")
+
+print("\nPopulation Denominators:")
+print(result_specific["n_pop"])
+```
+
+```{python}
+# Display SOC/PT breakdown
+print("\nSpecific AE Analysis (first 30 rows):")
+print(result_specific["summary"].head(30))
+```
+
+### Severity Breakdown
+
+If severity data is available, the function provides stratification by severity grade.
+
+```{python}
+if result_specific["severity"] is not None and len(result_specific["severity"]) > 0:
+    print("\nSeverity Breakdown (first 10 rows):")
+    print(result_specific["severity"].head(10))
+else:
+    print("\nNo severity breakdown available for this parameter.")
+```
+
+## Step 5: Generate AE Listing
+
+The `ae_listing()` function creates patient-level listings with demographics merged from ADSL and clinical details from ADAE.
+
+```{python}
+# Generate listing for serious AEs
+result_listing = ae_listing(
+    study_plan=study_plan,
+    population="apat",
+    observation=None,
+    parameter="ser",          # Serious adverse events only
+    sort_by=["TRTA", "USUBJID", "ASTDY"]
+)
+```
+
+### Listing Metadata and Column Labels
+
+```{python}
+print("AE Listing Metadata:")
+for key, value in result_listing["meta"].items():
+    print(f"  {key}: {value}")
+
+print("\nColumn Labels:")
+for col, label in result_listing["column_labels"].items():
+    print(f"  {col}: {label}")
+```
+
+### Patient-Level Records
+
+```{python}
+# Display listing
+listing_df = result_listing["listing"]
+print(f"\nSerious AE Listing ({len(listing_df)} records):")
+print(listing_df)
+```
+
+### Listing Statistics
+
+```{python}
+n_records = len(listing_df)
+n_subjects = listing_df.select("USUBJID").n_unique()
+
+print(f"\nListing Statistics:")
+print(f"  Total records: {n_records}")
+print(f"  Unique subjects: {n_subjects}")
+
+# Treatment distribution
+if n_records > 0:
+    trt_dist = listing_df.group_by("TRTA").agg(pl.count().alias("n")).sort("n", descending=True)
+    print(f"\nTreatment Distribution:")
+    print(trt_dist)
+```
+
+## Step 6: Multiple Parameter Example
+
+The `ae_summary()` function supports semicolon-separated parameters to combine multiple AE categories in a single analysis.
+
+```{python}
+# Generate summary with combined parameters
+result_combined = ae_summary(
+    study_plan=study_plan,
+    population="apat",
+    parameter="any;rel;ser",  # Combined: any, related, serious
+    group="trt01a"
+)
+
+print("Combined Parameter Analysis:")
+print(f"  Parameters: {result_combined['meta']['parameter']}")
+print(f"  Labels: {result_combined['meta']['parameter_labels']}")
+```
+
+## Step 7: Using SQL Filters
+
+The framework uses **Polars native SQL** for data filtering. Here's how the custom filter syntax translates to SQL:
+
+```{python}
+from tlfyaml.ae_analysis import parse_filter_to_sql
+
+# Example filter translations
+filters = [
+    "adsl:saffl == 'Y'",
+    "adae:trtemfl == 'Y' and adae:aeser == 'Y'",
+    "adae:aerel in ['RELATED', 'PROBABLE', 'POSSIBLE']"
+]
+
+print("Filter Translation Examples:")
+for f in filters:
+    sql = parse_filter_to_sql(f)
+    print(f"\nInput:  {f}")
+    print(f"SQL:    {sql}")
+```
+
+### SQL Execution Pattern
+
+All filter operations use `pl.SQLContext()` for native SQL execution:
+
+```python
+ctx = pl.SQLContext()
+ctx.register("adae", df)
+result = ctx.execute(f"SELECT * FROM adae WHERE {sql_where}").collect()
+```
+
+This approach provides:
+
+- **Cleaner code** - SQL is more readable than nested Polars expressions
+- **Better performance** - Native SQL execution engine optimized by Polars
+- **Flexibility** - Easy to extend with complex WHERE conditions
+- **Audit trail** - SQL queries are self-documenting for regulatory compliance
+
+## Summary
+
+This tutorial demonstrated the three core AE analysis functions:
+
+1. **`ae_summary()`** - Generated summary tables with 60 SOC levels and 354 PT levels, showing hierarchical display with counts and percentages
+
+2. **`ae_specific()`** - Created specific AE analysis with SOC→PT breakdown and optional severity stratification
+
+3. **`ae_listing()`** - Produced patient-level listings with demographics (age, sex, race) merged from ADSL and clinical details from ADAE
+
+All functions leverage **Polars native SQL capabilities** for efficient data processing and integrate seamlessly with the YAML-driven study plan architecture. The framework follows the **metalite.ae** R package patterns while using modern Python tooling.
+
+For more information on the study plan structure and YAML configuration, see the [Plan Expansion](plan.qmd) documentation.

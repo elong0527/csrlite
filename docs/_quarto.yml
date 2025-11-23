@@ -19,6 +19,7 @@ book:
     - index.qmd
     - inheritance.qmd
     - plan.qmd
+    - ae-analysis.qmd
 
 format:
   html:
