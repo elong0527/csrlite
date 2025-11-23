@@ -39,6 +39,7 @@ dev = [
     "pytest>=9.0.1",
     "jupyter>=1.1.1",
     "jupyter-cache>=1.0.1",
+    "nbformat>=5.10.4",
 ]
 all = ["rtflite", "matplotlib>=3.5.0", "plotly>=5.0.0"]
 
@@ -128,3 +129,11 @@ module = [
     "plotly.*",
 ]
 ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.1.1",
+    "jupyter-cache>=1.0.1",
+    "nbclient>=0.10.2",
+    "notebook>=7.5.0",
+]

@@ -3004,6 +3004,7 @@ dev = [
     { name = "jupyter" },
     { name = "jupyter-cache" },
     { name = "mypy" },
+    { name = "nbformat" },
     { name = "pytest" },
     { name = "pytest-cov" },
 ]
@@ -3015,6 +3016,14 @@ rtf = [
     { name = "rtflite" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "jupyter" },
+    { name = "jupyter-cache" },
+    { name = "nbclient" },
+    { name = "notebook" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=22.0.0" },
@@ -3024,6 +3033,7 @@ requires-dist = [
     { name = "matplotlib", marker = "extra == 'all'", specifier = ">=3.5.0" },
     { name = "matplotlib", marker = "extra == 'plotting'", specifier = ">=3.5.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
+    { name = "nbformat", marker = "extra == 'dev'", specifier = ">=5.10.4" },
     { name = "plotly", marker = "extra == 'all'", specifier = ">=5.0.0" },
     { name = "plotly", marker = "extra == 'plotting'", specifier = ">=5.0.0" },
     { name = "polars", specifier = ">=0.20.0" },
@@ -3036,6 +3046,14 @@ requires-dist = [
     { name = "rtflite", marker = "extra == 'rtf'" },
 ]
 provides-extras = ["rtf", "plotting", "dev", "all"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "jupyter", specifier = ">=1.1.1" },
+    { name = "jupyter-cache", specifier = ">=1.0.1" },
+    { name = "nbclient", specifier = ">=0.10.2" },
+    { name = "notebook", specifier = ">=7.5.0" },
+]
 
 [[package]]
 name = "tomli"

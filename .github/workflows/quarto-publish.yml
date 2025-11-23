@@ -36,7 +36,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --all-extras
+          uv sync --all-extras --group dev
 
       - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
@@ -45,12 +45,12 @@ jobs:
 
       - name: Setup Jupyter kernel
         run: |
-          uv run python -m ipykernel install --user --name python3
+          uv run --group dev python -m ipykernel install --user --name python3
 
       - name: Render Quarto website
         run: |
           cd docs
-          quarto render
+          uv run --group dev quarto render
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
