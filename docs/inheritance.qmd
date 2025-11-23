@@ -1,24 +1,35 @@
 ---
-title: "Template Inheritance"
+title: "Inheritance"
 ---
 
-## Overview
+# Overview
 
-Template inheritance allows organizations to create reusable keyword definitions that can be shared across therapeutic areas and studies while maintaining study-specific flexibility.
+To ensure consistency in clinical study reporting deliverables, a biometrics organization has established standards, business rules, and templates.
+
+Building AI-prompt-ready templates that can interact with GenAI in a predictable way is critical. Template inheritance allows organizations to create reusable keyword definitions that can be shared across therapeutic areas and studies, while maintaining study-specific flexibility.
 
 ## Inheritance Hierarchy
+
+To enable GenAI to produce accurate and consistent deliverables, we must maximize the use of organization and therapeutic area (TA) level templates, ensuring that study analysis and reporting plans inherit this knowledge.
 
 ```
 Organization Templates
     ↓
-Therapeutic Area Templates
+TA Templates
     ↓
 Study Plans
 ```
 
-## Organization Template
+# Example 
 
-Create base definitions that apply across all studies:
+For clinical analysis and reporting specifically,
+the template can be organized as a collection of keywords in different categories including population, observation, and parameter, etc.
+
+## Organization or TA Template
+
+For simplicity, we do not differentiate between organization and TA templates.
+A template can be as simple as a keyword name and its label that is expected to be used across TLFs and documentation
+(e.g., `apat` and `itt`). 
 
 **`organization.yaml`**
 ```yaml
@@ -39,7 +50,7 @@ parameter:
 
 ## Study Plan Inheritance
 
-Reference the template and add study-specific details:
+Reference the template "organization.yaml", so the knowledge will be inherited while building the study analysis plan. 
 
 **`plan_xyz123.yaml`**
 ```yaml
@@ -47,7 +58,13 @@ study:
   name: "XYZ123"
   template:
     - organization.yaml
+```
 
+To make a keyword useful, we can define a `filter` following an enhanced SQL syntax.
+For example, `adae:trtemfl == "Y"` reads as the `ADAE` dataset `trtemfl` flag equal to `Y`. 
+
+**`plan_xyz123.yaml`**
+```yaml
 # Study-specific parameter filters
 parameter:
   - name: any
@@ -55,20 +72,10 @@ parameter:
   - name: rel
     filter: "adae:trtemfl == 'Y' and adae:aerel in ['RELATED', 'PROBABLY RELATED']"
 ```
-
+  
 ## Field-Level Inheritance
 
 The system performs intelligent field-level merging:
-
-### Template Provides
-- Labels for consistent naming
-- Base filter logic
-- Standard descriptions
-
-### Study Overrides/Adds
-- Specific filter expressions
-- Study-specific keywords
-- Custom descriptions
 
 ### Example Resolution
 
@@ -90,26 +97,9 @@ parameter:
     filter: "adae:trtemfl == 'Y'"     # From study
 ```
 
-## Loading with Inheritance
+## Multiple Templates
 
-```python
-from tlfyaml import load_plan
-
-# Load plan with template inheritance
-study_plan = load_plan('examples/yaml/plan_xyz123.yaml')
-
-# Check what was inherited
-keywords = study_plan.keywords
-
-# Verify template labels are preserved
-any_param = keywords.get_parameter('any')
-print(f"Label: {any_param.label}")      # From template
-print(f"Filter: {any_param.filter}")    # From study
-```
-
-## Advanced Patterns
-
-### Multiple Templates
+Templates are loaded in order with later templates able to override earlier ones.
 
 ```yaml
 study:
@@ -119,8 +109,6 @@ study:
     - safety_common.yaml
 ```
 
-Templates are loaded in order with later templates able to override earlier ones.
-
 ### Conditional Inheritance
 
 Study plans can completely override template definitions when needed:
@@ -129,9 +117,8 @@ Study plans can completely override template definitions when needed:
 # Study completely replaces template definition
 parameter:
   - name: ser
-    label: "Study-Specific Serious AE Definition"
-    description: "Different from organization standard"
-    filter: "custom_logic == 'Y'"
+    label: "Study-Specific Serious Adverse Events"
+    filter: "adae:aeser == 'Y'"
 ```
 
 ## Benefits
@@ -156,4 +143,4 @@ parameter:
 - Override capability when needed
 - Gradual migration of standards
 
-This inheritance system provides the perfect balance of standardization and flexibility for large-scale clinical trial operations.
+This inheritance system provides the balance of standardization and flexibility for large-scale organizations.

@@ -22,8 +22,8 @@ website:
     style: docked
     search: true
     contents:
-        - plan.qmd
         - inheritance.qmd
+        - plan.qmd
 
 format:
   html:
