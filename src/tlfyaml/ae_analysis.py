@@ -30,6 +30,9 @@ def ae_summary_core(
     observation_filter: str | None,
     group: tuple[str, str],
     variables: list[tuple[str, str]],
+    id: tuple[str, ...] = ("USUBJID",),
+    total: bool = False,
+    missing_group: str = "error",
 ) -> dict[str, Any]:
     """
     Core AE summary function - decoupled from StudyPlan.
@@ -45,6 +48,9 @@ def ae_summary_core(
         observation_filter: SQL WHERE clause for observation (can be None)
         group: Tuple (variable_name, label) for grouping variable
         variables: List of tuples [(filter, label)] for analysis variables
+        id: Tuple of ID column name(s) for counting (default: ("USUBJID",))
+        total: Whether to include total column in counts (default: False)
+        missing_group: How to handle missing group values: "error", "ignore", or "fill" (default: "error")
 
     Returns:
         Dictionary containing:
@@ -59,7 +65,10 @@ def ae_summary_core(
         ...     population_filter="SAFFL = 'Y'",
         ...     observation_filter=None,
         ...     group=("TRT01A", "Treatment Group"),
-        ...     variables=[("TRTEMFL = 'Y'", "Any AE")]
+        ...     variables=[("TRTEMFL = 'Y'", "Any AE")],
+        ...     id=("USUBJID",),
+        ...     total=False,
+        ...     missing_group="error"
         ... )
     """
     # Extract group variable name (label is in tuple but not needed separately)
@@ -76,12 +85,14 @@ def ae_summary_core(
         population_filtered = population
 
     # Calculate denominators using count_subject() from count.py
+    # Use first ID column from tuple for subject counting
+    id_col = id[0] if id else "USUBJID"
     n_pop = count_subject(
         population=population_filtered,
-        id="USUBJID",
+        id=id_col,
         group=group_var_name,
-        total=False,
-        missing_group="error"
+        total=total,
+        missing_group=missing_group
     ).rename({"n_subj_pop": "n"})
 
     # Build combined filter expression
@@ -101,19 +112,19 @@ def ae_summary_core(
     observation_filtered = observation.filter(filter_expr)
 
     # Filter to population subjects
-    pop_subjects = population_filtered.select("USUBJID")
-    observation_filtered = observation_filtered.join(pop_subjects, on="USUBJID", how="inner")
+    pop_subjects = population_filtered.select(id_col)
+    observation_filtered = observation_filtered.join(pop_subjects, on=id_col, how="inner")
 
     # Merge treatment group from population
     observation_with_group = observation_filtered.join(
-        population_filtered.select(["USUBJID", group_var_name]), on="USUBJID", how="left"
+        population_filtered.select([id_col, group_var_name]), on=id_col, how="left"
     )
 
     # Calculate SOC-level counts
     soc_summary = (
         observation_with_group.filter(pl.col("AOCCSFL") == "Y")
         .group_by([group_var_name, "AESOC"])
-        .agg(pl.n_unique("USUBJID").alias("n_subj"))
+        .agg(pl.n_unique(id_col).alias("n_subj"))
         .join(n_pop, on=group_var_name)
         .with_columns(
             [
@@ -130,7 +141,7 @@ def ae_summary_core(
     pt_summary = (
         observation_with_group.filter(pl.col("AOCCPFL") == "Y")
         .group_by([group_var_name, "AESOC", "AEDECOD"])
-        .agg(pl.n_unique("USUBJID").alias("n_subj"))
+        .agg(pl.n_unique(id_col).alias("n_subj"))
         .join(n_pop, on=group_var_name)
         .with_columns(
             [
@@ -170,6 +181,9 @@ def ae_summary_core(
             "variable_labels": variable_labels,
             "observation_filter": observation_filter,
             "group": group,
+            "id": id,
+            "total": total,
+            "missing_group": missing_group,
         },
         "n_pop": n_pop,
         "summary": summary,
@@ -182,6 +196,9 @@ def ae_summary(
     observation: str | None = None,
     parameter: str = "any",
     group: str = "trt01a",
+    id: tuple[str, ...] = ("USUBJID",),
+    total: bool = False,
+    missing_group: str = "error",
 ) -> dict[str, Any]:
     """
     Wrapper function for ae_summary_core with StudyPlan integration.
@@ -195,6 +212,9 @@ def ae_summary(
         observation: Optional observation keyword for timepoint filtering
         parameter: Parameter keyword, can be semicolon-separated (e.g., "any;rel;ser")
         group: Group keyword name for treatment grouping
+        id: Tuple of ID column name(s) for counting (default: ("USUBJID",))
+        total: Whether to include total column in counts (default: False)
+        missing_group: How to handle missing group values: "error", "ignore", or "fill" (default: "error")
 
     Returns:
         Dictionary containing:
@@ -231,6 +251,9 @@ def ae_summary(
         observation_filter=obs_filter,
         group=group_tuple,
         variables=variables_list,
+        id=id,
+        total=total,
+        missing_group=missing_group,
     )
 
     # Add StudyPlan-specific metadata and group labels
@@ -253,6 +276,9 @@ def calculate_parameter_summary(
     observation: str | None = None,
     parameters: list[str] = None,
     group: str = "trt01a",
+    id: tuple[str, ...] = ("USUBJID",),
+    total: bool = False,
+    missing_group: str = "error",
 ) -> dict[str, Any]:
     """
     Calculate summary counts for multiple parameters separately.
@@ -265,6 +291,9 @@ def calculate_parameter_summary(
         observation: Optional observation keyword
         parameters: List of parameter names to calculate separately
         group: Group keyword name
+        id: Tuple of ID column name(s) for counting (default: ("USUBJID",))
+        total: Whether to include total column in counts (default: False)
+        missing_group: How to handle missing group values: "error", "ignore", or "fill" (default: "error")
 
     Returns:
         Dictionary with n_pop and parameter_counts per group
@@ -284,12 +313,14 @@ def calculate_parameter_summary(
     population_filtered = population_df.filter(pl.sql_expr(population_filter))
 
     # Calculate denominators using count_subject() from count.py
+    # Use first ID column from tuple for subject counting
+    id_col = id[0] if id else "USUBJID"
     n_pop = count_subject(
         population=population_filtered,
-        id="USUBJID",
+        id=id_col,
         group=group_var,
-        total=False,
-        missing_group="error"
+        total=total,
+        missing_group=missing_group
     ).rename({"n_subj_pop": "n"})
 
     # Calculate counts for each parameter separately
@@ -307,18 +338,18 @@ def calculate_parameter_summary(
         observation_filtered = observation_df.filter(filter_expr)
 
         # Filter to population subjects
-        pop_subjects = population_filtered.select("USUBJID")
-        observation_filtered = observation_filtered.join(pop_subjects, on="USUBJID", how="inner")
+        pop_subjects = population_filtered.select(id_col)
+        observation_filtered = observation_filtered.join(pop_subjects, on=id_col, how="inner")
 
         # Merge treatment group
         observation_with_group = observation_filtered.join(
-            population_filtered.select(["USUBJID", group_var]), on="USUBJID", how="left"
+            population_filtered.select([id_col, group_var]), on=id_col, how="left"
         )
 
         # Count unique subjects per group
         param_counts = (
             observation_with_group.group_by(group_var)
-            .agg(pl.n_unique("USUBJID").alias("n_subj"))
+            .agg(pl.n_unique(id_col).alias("n_subj"))
             .join(n_pop, on=group_var, how="right")
             .with_columns(pl.col("n_subj").fill_null(0))
             .sort(group_var)
@@ -391,6 +422,9 @@ def ae_summary_to_rtf(
     observation = meta.get("observation")
     parameters = meta.get("parameter", [])
     group = meta.get("group")
+    id = meta.get("id", ("USUBJID",))
+    total = meta.get("total", False)
+    missing_group = meta.get("missing_group", "error")
 
     if not population or not group:
         raise ValueError("Result must contain population and group in metadata")
@@ -402,6 +436,9 @@ def ae_summary_to_rtf(
         observation=observation,
         parameters=parameters,
         group=group,
+        id=id,
+        total=total,
+        missing_group=missing_group,
     )
 
     n_pop_df = summary_data["n_pop"]
