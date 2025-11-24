@@ -8,7 +8,7 @@ Uses Polars native SQL capabilities for data manipulation, count.py utilities fo
 and parse.py utilities for StudyPlan parsing.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import polars as pl
 
@@ -28,9 +28,9 @@ def ae_summary_core(
     observation: pl.DataFrame,
     population_filter: str | None,
     observation_filter: str | None,
-    group: Dict[str, str],
-    variables: List[Dict[str, str]],
-) -> Dict[str, Any]:
+    group: tuple[str, str],
+    variables: list[tuple[str, str]],
+) -> dict[str, Any]:
     """
     Core AE summary function - decoupled from StudyPlan.
 
@@ -43,8 +43,8 @@ def ae_summary_core(
         observation: Observation DataFrame (event data, e.g., ADAE)
         population_filter: SQL WHERE clause for population (can be None)
         observation_filter: SQL WHERE clause for observation (can be None)
-        group: Dictionary {variable_name: label} for grouping variable
-        variables: List of dictionaries [{filter: label}] for analysis variables
+        group: Tuple (variable_name, label) for grouping variable
+        variables: List of tuples [(filter, label)] for analysis variables
 
     Returns:
         Dictionary containing:
@@ -58,22 +58,22 @@ def ae_summary_core(
         ...     observation=adae_df,
         ...     population_filter="SAFFL = 'Y'",
         ...     observation_filter=None,
-        ...     group={"TRT01A": "Treatment Group"},
-        ...     variables=[{"TRTEMFL = 'Y'": "Any AE"}]
+        ...     group=("TRT01A", "Treatment Group"),
+        ...     variables=[("TRTEMFL = 'Y'", "Any AE")]
         ... )
     """
-    # Extract group variable name
-    group_var_name = list(group.keys())[0]
+    # Extract group variable name (label is in tuple but not needed separately)
+    group_var_name, _ = group
 
-    # Extract variable filters and labels from list of dicts
-    variable_filters = []
-    variable_labels = []
-    for var_dict in variables:
-        variable_filters.extend(var_dict.keys())
-        variable_labels.extend(var_dict.values())
+    # Extract variable filters and labels
+    variable_filters = [f for f, _ in variables]
+    variable_labels = [l for _, l in variables]
 
     # Apply population filter using pl.sql_expr()
-    population_filtered = population.filter(pl.sql_expr(population_filter))
+    if population_filter:
+        population_filtered = population.filter(pl.sql_expr(population_filter))
+    else:
+        population_filtered = population
 
     # Calculate denominators using count_subject() from count.py
     n_pop = count_subject(
@@ -87,11 +87,11 @@ def ae_summary_core(
     # Build combined filter expression
     filter_expr = pl.lit(True)
 
-    # Add parameter filters with OR logic
-    if parameter_filters:
-        param_conditions = [f"({pf})" for pf in parameter_filters]
-        param_sql = f"({' OR '.join(param_conditions)})"
-        filter_expr = filter_expr & pl.sql_expr(param_sql)
+    # Add variable filters with OR logic
+    if variable_filters:
+        var_conditions = [f"({vf})" for vf in variable_filters]
+        var_sql = f"({' OR '.join(var_conditions)})"
+        filter_expr = filter_expr & pl.sql_expr(var_sql)
 
     # Add observation filter with AND logic
     if observation_filter:
@@ -166,10 +166,10 @@ def ae_summary_core(
     return {
         "meta": {
             "analysis": "ae_summary",
-            "parameter_filters": parameter_filters,
-            "parameter_labels": parameter_labels,
+            "variable_filters": variable_filters,
+            "variable_labels": variable_labels,
             "observation_filter": observation_filter,
-            "group_var": group_var,
+            "group": group,
         },
         "n_pop": n_pop,
         "summary": summary,
@@ -179,10 +179,10 @@ def ae_summary_core(
 def ae_summary(
     study_plan: StudyPlan,
     population: str,
-    observation: Optional[str] = None,
+    observation: str | None = None,
     parameter: str = "any",
     group: str = "trt01a",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Wrapper function for ae_summary_core with StudyPlan integration.
 
@@ -215,22 +215,22 @@ def ae_summary(
     obs_filter = parser.get_observation_filter(observation)
     group_var_name, group_labels = parser.get_group_info(group)
 
-    # Build parameters dictionary {filter: label}
-    parameters_dict = dict(zip(param_filters, param_labels))
+    # Build variables as list of tuples [(filter, label)]
+    variables_list = list(zip(param_filters, param_labels))
 
-    # Build group_var dictionary {variable_name: label}
+    # Build group tuple (variable_name, label)
     # Use first group label or variable name as label
     group_var_label = group_labels[0] if group_labels else group_var_name
-    group_var_dict = {group_var_name: group_var_label}
+    group_tuple = (group_var_name, group_var_label)
 
     # Call core function
     result = ae_summary_core(
         population=population_df,
         observation=observation_df,
         population_filter=population_filter,
-        parameters=parameters_dict,
-        group_var=group_var_dict,
         observation_filter=obs_filter,
+        group=group_tuple,
+        variables=variables_list,
     )
 
     # Add StudyPlan-specific metadata and group labels
@@ -250,10 +250,10 @@ def ae_summary(
 def calculate_parameter_summary(
     study_plan: StudyPlan,
     population: str,
-    observation: Optional[str] = None,
-    parameters: List[str] = None,
+    observation: str | None = None,
+    parameters: list[str] = None,
     group: str = "trt01a",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Calculate summary counts for multiple parameters separately.
 
@@ -339,12 +339,12 @@ def calculate_parameter_summary(
 
 
 def ae_summary_to_rtf(
-    result: Dict[str, Any],
-    study_plan: Optional[StudyPlan] = None,
-    title: Optional[str] = None,
-    subtitle: Optional[List[str]] = None,
-    output_file: Optional[str] = None,
-    col_widths: Optional[List[float]] = None,
+    result: dict[str, Any],
+    study_plan: StudyPlan | None = None,
+    title: str | None = None,
+    subtitle: list[str] | None = None,
+    output_file: str | None = None,
+    col_widths: list[float] | None = None,
 ) -> str:
     """
     Convert ae_summary result to RTF summary table format using rtflite.

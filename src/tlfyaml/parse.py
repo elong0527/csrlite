@@ -6,7 +6,7 @@ including filter conversion, parameter parsing, and keyword resolution.
 """
 
 import re
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
 import polars as pl
 
@@ -121,7 +121,7 @@ def _parse_filter_expr(filter_str: str) -> Any:
     return eval(filter_str)
 
 
-def parse_parameter(parameter_str: str) -> List[str]:
+def parse_parameter(parameter_str: str) -> list[str]:
     """
     Parse semicolon-separated parameter string.
 
@@ -173,7 +173,7 @@ class StudyPlanParser:
             raise ValueError(f"Population '{population}' not found")
         return parse_filter_to_sql(pop.filter)
 
-    def get_observation_filter(self, observation: Optional[str]) -> Optional[str]:
+    def get_observation_filter(self, observation: str | None) -> str | None:
         """
         Get observation filter as SQL WHERE clause.
 
@@ -192,7 +192,7 @@ class StudyPlanParser:
 
     def get_parameter_info(
         self, parameter: str
-    ) -> Tuple[List[str], List[str], List[str]]:
+    ) -> tuple[list[str], list[str], list[str]]:
         """
         Get parameter names, filters, and labels.
 
@@ -218,7 +218,7 @@ class StudyPlanParser:
 
         return param_names, param_filters, param_labels
 
-    def get_single_parameter_info(self, parameter: str) -> Tuple[str, str]:
+    def get_single_parameter_info(self, parameter: str) -> tuple[str, str]:
         """
         Get single parameter filter and label (NOT semicolon-separated).
 
@@ -236,7 +236,7 @@ class StudyPlanParser:
             raise ValueError(f"Parameter '{parameter}' not found")
         return parse_filter_to_sql(param.filter), param.label or parameter
 
-    def get_group_info(self, group: str) -> Tuple[str, List[str]]:
+    def get_group_info(self, group: str) -> tuple[str, list[str]]:
         """
         Get group variable name and labels.
 
@@ -258,7 +258,7 @@ class StudyPlanParser:
 
         return group_var, group_labels
 
-    def get_datasets(self, *dataset_names: str) -> Tuple[pl.DataFrame, ...]:
+    def get_datasets(self, *dataset_names: str) -> tuple[pl.DataFrame, ...]:
         """
         Get multiple datasets from StudyPlan.
 
@@ -281,7 +281,7 @@ class StudyPlanParser:
 
     def get_population_data(
         self, population: str, group: str
-    ) -> Tuple[pl.DataFrame, str]:
+    ) -> tuple[pl.DataFrame, str]:
         """
         Get filtered population dataset and group variable.
 
