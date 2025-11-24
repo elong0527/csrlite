@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path.cwd().parent / 'src'))
 ```
 
 ```{python}
-from tlfyaml import load_plan, ae_summary, ae_specific, ae_listing, ae_summary_to_rtf
+from tlfyaml import load_plan, ae_summary, ae_summary_to_rtf
 ```
 
 ## Load Study Plan
@@ -72,60 +72,6 @@ The summary table shows both SOC-level and PT-level counts with percentages. Res
 
 ```{python}
 result_summary["summary"]
-```
-
-## Generate Specific AE Analysis
-
-The `ae_specific()` function provides detailed analysis of specific adverse events with hierarchical SOC→PT breakdown. It includes optional severity stratification.
-
-```{python}
-# Generate specific AE analysis for related AEs
-result_specific = ae_specific(
-    study_plan=study_plan,
-    population="apat",
-    observation=None,
-    parameter="any",          # Use "any" instead of "rel" to show more results
-    group="trt01a"
-)
-```
-
-### Specific AE Results
-
-```{python}
-result_specific
-```
-
-```{python}
-result_specific["summary"]
-```
-
-### Severity Breakdown
-
-If severity data is available, the function provides stratification by severity grade.
-
-```{python}
-result_specific["severity"].head(10)
-```
-
-## Generate AE Listing
-
-The `ae_listing()` function creates patient-level listings with demographics merged from ADSL and clinical details from ADAE.
-
-```{python}
-# Generate listing for serious AEs
-result_listing = ae_listing(
-    study_plan=study_plan,
-    population="apat",
-    observation=None,
-    parameter="ser",          # Serious adverse events only
-    sort_by=["TRTA", "USUBJID", "ASTDY"]
-)
-```
-
-### Listing Metadata and Column Labels
-
-```{python}
-result_listing["column_labels"]
 ```
 
 ## Generate RTF Table Output
