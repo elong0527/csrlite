@@ -134,7 +134,7 @@ def ae_summary_ard(
 
     res = res.with_columns(
         pl.col("__index__").cast(pl.Enum(ordered_categories))
-    ).sort("__index__")
+    ).sort("__index__", "__group__")
 
     return res
 

@@ -18,14 +18,20 @@ def _to_pop(
     if missing_group == "error" and pop[group].is_null().any():
         raise ValueError(f"Missing values found in the '{group}' column of the population DataFrame, and 'missing_group' is set to 'error'.")
 
+    # Convert group to Enum for consistent categorical ordering
+    u_pop = pop[group].unique().sort().to_list()
+
     # handle total column
     if total:
-        u_pop = pop[group].unique().sort().to_list()
         pop_total = pop.with_columns(pl.lit("Total").alias(group))
         pop = pl.concat([pop, pop_total]).with_columns(
             pl.col(group).cast(pl.Enum(u_pop + ["Total"]))
         )
-    
+    else:
+        pop = pop.with_columns(
+            pl.col(group).cast(pl.Enum(u_pop))
+        )
+
     return pop
 
 def count_subject(

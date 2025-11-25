@@ -56,7 +56,7 @@ ae_summary_ard(
         ("AESER = 'Y'", "Serious Adverse Events")
     ],
     id=("USUBJID", "Subject ID"),
-    total=False,
+    total=True,
     missing_group="error"
 )
 ```
