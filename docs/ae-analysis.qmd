@@ -40,12 +40,30 @@ adsl = study_plan.datasets["adsl"]
 adae = study_plan.datasets["adae"]
 ```
 
-## Core Functionality 
+# Overview 
+
+We break the function into three steps 
+
+`*_ard`: create an analysis ready data in long format. 
+`*_df`: create a data frame following exact format of the TLF.
+`*_tlf`: format TLF and save into a file. 
+
+# AE Summary 
+
+Here `ae_summary` is a wrapper of the `ae_summary_ard`, `ae_summary_df` and `ae_summary_tlf` function. 
+
+::: {.callout-note}
+We keep it simple and focus on the concept, one can refactor it into a class and add additional validation to make it production ready.
+:::
+
+## Function call
+
+## Internal function
 
 ### Prepare analysis ready data 
 
 ```{python}
-ae_summary_ard(
+_ard = ae_summary_ard(
     population=adsl,
     observation=adae,
     population_filter="SAFFL = 'Y'",
@@ -59,8 +77,15 @@ ae_summary_ard(
     total=True,
     missing_group="error"
 )
+
+_ard
 ```
 
+### Prepare TLF ready data 
+
+```{python}
+_ard.pivot(index = "__index__", on = "__group__", values = "__value__")
+```
 
 ## Generate AE Summary Table
 

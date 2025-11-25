@@ -75,7 +75,8 @@ def count_subject_with_observation(
         variable,
         total = True,
         missing_group = "error",
-        pct_digit = 1
+        pct_digit = 1,
+        max_n_width = None
 ) -> pl.DataFrame:
     """
     Counts subjects and observations by group and a specified variable,
@@ -93,6 +94,7 @@ def count_subject_with_observation(
         missing_group (str, optional): How to handle missing values in the group column.
                                        "error" will raise a ValueError. Defaults to "error".
         pct_digit (int, optional): Number of decimal places for percentage formatting. Defaults to 1.
+        max_n_width (int, optional): Fixed width for subject count formatting. If None, inferred from data. Defaults to None.
 
     Returns:
         pl.DataFrame: A DataFrame with counts and percentages of subjects and observations
@@ -123,24 +125,53 @@ def count_subject_with_observation(
         missing_group = missing_group,
     )
 
-    df_obs = (
+    # Count observations and subjects by group and variable
+    df_obs_counts = (
         obs
         .group_by(group, variable)
         .agg(
             pl.len().alias("n_obs"),
             pl.n_unique(id).alias("n_subj")
         )
-        .join(df_pop, on = group)
+    )
+
+    # Create all combinations of groups and variables to ensure no missing groups
+    unique_groups = df_pop.select(group)
+    unique_variables = obs.select(variable).unique()
+
+    # Cross join to get all combinations
+    all_combinations = unique_groups.join(unique_variables, how="cross")
+
+    # Left join to preserve all combinations, filling missing counts with 0
+    df_obs = (
+        all_combinations
+        .join(df_obs_counts, on=[group, variable], how="left")
+        .join(df_pop, on=group, how="left")
+        .with_columns([
+            pl.col("n_obs").fill_null(0),
+            pl.col("n_subj").fill_null(0)
+        ])
         .with_columns(
             pct_subj = (pl.col("n_subj") / pl.col("n_subj_pop") * 100)
         )
         .with_columns(
             pct_subj_fmt = pl.col("pct_subj").round(pct_digit, mode = "half_away_from_zero").cast(pl.String)
         )
-        .with_columns(
-            n_pct_subj_fmt = pl.format("{} ({})", pl.col("n_subj"), pl.col("pct_subj_fmt"))
-        )
-        .sort(group, variable)
     )
+
+    # Calculate max widths for proper alignment
+    if max_n_width is None:
+        max_n_width = df_obs.select(pl.col("n_subj").cast(pl.String).str.len_chars().max()).item()
+
+    # Infer max percentage width from pct_digit
+    max_pct_width = 3 if pct_digit == 0 else 4 + pct_digit
+
+    # Format with padding for alignment
+    df_obs = df_obs.with_columns([
+        pl.col("pct_subj_fmt").str.pad_start(max_pct_width, " "),
+        pl.col("n_subj").cast(pl.String).str.pad_start(max_n_width, " ").alias("n_subj_fmt")
+    ]).with_columns(
+        n_pct_subj_fmt = pl.format("{} ({})", pl.col("n_subj_fmt"), pl.col("pct_subj_fmt"))
+    ).sort(group, variable)
 
     return df_obs
