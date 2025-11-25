@@ -12,11 +12,7 @@ from typing import Any
 
 import polars as pl
 
-try:
-    from rtflite import RTFBody, RTFColumnHeader, RTFDocument, RTFSource, RTFTitle
-    RTFLITE_AVAILABLE = True
-except ImportError:
-    RTFLITE_AVAILABLE = False
+from rtflite import RTFBody, RTFColumnHeader, RTFDocument, RTFSource, RTFTitle
 
 from .plan import StudyPlan
 from .count import count_subject, count_subject_with_observation
@@ -57,19 +53,6 @@ def ae_summary_core(
         - meta: Analysis metadata
         - n_pop: Population denominators by group
         - summary: Summary statistics with SOC/PT hierarchy
-
-    Example:
-        >>> result = ae_summary_core(
-        ...     population=adsl_df,
-        ...     observation=adae_df,
-        ...     population_filter="SAFFL = 'Y'",
-        ...     observation_filter=None,
-        ...     group=("TRT01A", "Treatment Group"),
-        ...     variables=[("TRTEMFL = 'Y'", "Any AE")],
-        ...     id=("USUBJID",, "Subject ID"),
-        ...     total=False,
-        ...     missing_group="error"
-        ... )
     """
     # Extract group variable name (label is in tuple but not needed separately)
     pop_var_name = "Participants in Population"
@@ -118,6 +101,13 @@ def ae_summary_core(
         pl.col("n_subj_pop").cast(pl.String).alias("__value__")
     )
 
+    # Empty row with same structure as n_pop but with empty strings
+    n_empty = n_pop.select(
+        pl.lit("").alias("__index__"),
+        pl.col("__group__"),
+        pl.lit("").alias("__value__")
+    )
+
     # Observation
     n_obs = count_subject_with_observation(
         population=population_filtered,
@@ -135,7 +125,16 @@ def ae_summary_core(
         pl.col("n_pct_subj_fmt").alias("__value__")
     )
 
-    res = pl.concat([n_pop, n_obs])
+    res = pl.concat([n_pop, n_empty, n_obs])
+
+    # Convert __index__ to ordered Enum based on appearance
+    # Build the ordered categories list: population name, empty string, then variable labels
+    variable_labels = [label for _, label in variables]
+    ordered_categories = [pop_var_name, ""] + variable_labels
+
+    res = res.with_columns(
+        pl.col("__index__").cast(pl.Enum(ordered_categories))
+    ).sort("__index__")
 
     return res
 
@@ -344,11 +343,6 @@ def ae_summary_to_rtf(
         ...     output_file="ae_summary.rtf"
         ... )
     """
-    if not RTFLITE_AVAILABLE:
-        raise ImportError(
-            "rtflite is required for RTF output. Install it with: pip install rtflite"
-        )
-
     if study_plan is None:
         raise ValueError("study_plan is required for accurate parameter-level counts")
 
