@@ -28,23 +28,26 @@ from tlfyaml import load_plan, study_plan_to_ae_summary
 from tlfyaml.ae_summary import ae_summary_ard, ae_summary_df, ae_summary_rtf, ae_summary
 ```
 
-## Load Study Plan
+## AE Summary with analysis plan 
 
 The study plan is defined in YAML format with template inheritance. It contains population definitions, observation periods, parameters, and data source specifications.
 
 ```{python}
 # Load study plan from YAML
 study_plan = load_plan("examples/yaml/plan_xyz123.yaml")
+study_plan.get_plan_df().filter(pl.col("analysis") == "ae_summary")
 ```
 
+In production, we expect one call to get all AE summary analysis defined in the study plan.
+
 ```{python}
-adsl = study_plan.datasets["adsl"]
-adae = study_plan.datasets["adae"]
+study_plan_to_ae_summary(study_plan)
 ```
+
 
 # Overview 
 
-We break the function into three steps 
+We look into the design. Overall the `ae_summary` break into three steps 
 
 `*_ard`: create an analysis ready data in long format. 
 `*_df`: create a data frame following exact format of the TLF.
@@ -58,9 +61,38 @@ Here `ae_summary` is a wrapper of the `ae_summary_ard`, `ae_summary_df` and `ae_
 We keep it simple and focus on the concept, one can refactor it into a class and add additional validation to make it production ready.
 :::
 
-## Function call
+## Complete Pipeline
 
-## Internal function
+The `ae_summary` function provides a complete pipeline that executes all three steps and writes the RTF output to a file:
+
+```{python}
+adsl = pl.read_parquet("data/adsl.parquet")
+adae = pl.read_parquet("data/adae.parquet")
+
+ae_summary(
+    population=adsl,
+    observation=adae,
+    population_filter="SAFFL = 'Y'",
+    observation_filter=None,
+    id=("USUBJID", "Subject ID"),
+    group=("TRT01A", "Treatment Group"),
+    variables=[
+        ("TRTEMFL = 'Y'", "Any Adverse Events"),
+        ("AESER = 'Y'", "Serious Adverse Events")
+    ],
+    title=[
+        "Analysis of Adverse Event Summary",
+        "(Safety Analysis Population)"
+    ],
+    footnote=["Every participant is counted a single time for each applicable row and column."],
+    source=["Source: ADSL and ADAE datasets"],
+    output_file="examples/rtf/ae_summary.rtf",
+    total=True,
+    missing_group="error"
+)
+```
+
+## Step-by-Step Pipeline
 
 ### Prepare analysis ready data 
 
@@ -87,6 +119,7 @@ _ard
 
 ```{python}
 _rtf = ae_summary_df(_ard)
+_rtf
 ```
 
 ### Prepare RTF output

@@ -1,15 +1,18 @@
 """
 Adverse Event (AE) Analysis Functions
 
-This module provides core function for AE summary analysis following metalite.ae patterns:
-- ae_summary: Summary tables with counts/percentages by treatment group
+This module provides a three-step pipeline for AE summary analysis:
+- ae_summary_ard: Generate Analysis Results Data (ARD) in long format
+- ae_summary_df: Transform ARD to wide display format
+- ae_summary_rtf: Generate formatted RTF output
+- ae_summary: Complete pipeline wrapper
+- study_plan_to_ae_summary: Batch generation from StudyPlan
 
 Uses Polars native SQL capabilities for data manipulation, count.py utilities for subject counting,
 and parse.py utilities for StudyPlan parsing.
 """
 
 from pathlib import Path
-from typing import Any
 
 import polars as pl
 
@@ -18,6 +21,185 @@ from .plan import StudyPlan
 from .count import count_subject, count_subject_with_observation
 from .parse import StudyPlanParser
 
+
+def study_plan_to_ae_summary(
+    study_plan: StudyPlan,
+) -> list[str]:
+    """
+    Generate AE summary RTF outputs for all analyses defined in StudyPlan.
+
+    This function reads the expanded plan from StudyPlan and generates
+    an RTF table for each analysis specification automatically.
+
+    Args:
+        study_plan: StudyPlan object with loaded datasets and analysis specifications
+
+    Returns:
+        list[str]: List of paths to generated RTF files
+    """
+
+    # Meta data
+    analysis = "ae_summary"
+    analysis_label = "Analysis of Adverse Event Summary"
+    output_dir = "examples/tlf"
+    footnote = ["Every participant is counted a single time for each applicable row and column."]
+    source = None
+
+    id = ("USUBJID", "Subject ID") 
+    total = True
+    missing_group = "error"
+
+    # Create output directory if it doesn't exist
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    # Initialize parser
+    parser = StudyPlanParser(study_plan)
+
+    # Get expanded plan DataFrame
+    plan_df = study_plan.get_plan_df()
+
+    # Filter for AE summary analyses
+    ae_plans = plan_df.filter(pl.col("analysis") == analysis)
+
+    rtf_files = []
+
+    # Generate RTF for each analysis
+    for row in ae_plans.iter_rows(named=True):
+        population = row["population"]
+        observation = row.get("observation")
+        parameter = row["parameter"]
+        group = row.get("group")
+
+        # Validate group is specified
+        if group is None:
+            raise ValueError(f"Group not specified in YAML for analysis: population={population}, observation={observation}, parameter={parameter}. Please add group to your YAML plan.")
+
+        # Get datasets using parser
+        population_df, observation_df = parser.get_datasets("adsl", "adae")
+
+        # Get filters and configuration using parser
+        population_filter = parser.get_population_filter(population)
+        param_names, param_filters, param_labels = parser.get_parameter_info(parameter)
+        obs_filter = parser.get_observation_filter(observation)
+        group_var_name, group_labels = parser.get_group_info(group)
+
+        # Build variables as list of tuples [(filter, label)]
+        variables_list = list(zip(param_filters, param_labels))
+
+        # Build group tuple (variable_name, label)
+        group_var_label = group_labels[0] if group_labels else group_var_name
+        group_tuple = (group_var_name, group_var_label)
+
+        # Build title with population and observation context
+        title_parts = [analysis_label]
+        if observation:
+            obs_kw = study_plan.keywords.observations.get(observation)
+            if obs_kw and obs_kw.label:
+                title_parts.append(f"({obs_kw.label})")
+
+        pop_kw = study_plan.keywords.populations.get(population)
+        if pop_kw and pop_kw.label:
+            title_parts.append(f"({pop_kw.label})")
+
+        # Build output filename
+        filename = f"{analysis}_{population}"
+        if observation:
+            filename += f"_{observation}"
+        filename += f"_{parameter.replace(';', '_')}.rtf"
+        output_file = str(Path(output_dir) / filename)
+
+        # Generate RTF using the new ae_summary signature
+        rtf_path = ae_summary(
+            population=population_df,
+            observation=observation_df,
+            population_filter=population_filter,
+            observation_filter=obs_filter,
+            id=id,
+            group=group_tuple,
+            variables=variables_list,
+            title=title_parts,
+            footnote=footnote,
+            source=source,
+            output_file=output_file,
+            total=total,
+            missing_group=missing_group,
+        )
+
+        rtf_files.append(rtf_path)
+
+    return rtf_files
+
+
+def ae_summary(
+    population: pl.DataFrame,
+    observation: pl.DataFrame,
+    population_filter: str | None,
+    observation_filter: str | None,
+    id: tuple[str, str],
+    group: tuple[str, str],
+    variables: list[tuple[str, str]],
+    title: list[str],
+    footnote: list[str] | None,
+    source: list[str] | None,
+    output_file: str,
+    total: bool = True,
+    col_rel_width: list[float] | None = None,
+    missing_group: str = "error",
+) -> str:
+    """
+    Complete AE summary pipeline wrapper.
+
+    This function orchestrates the three-step pipeline:
+    1. ae_summary_ard: Generate Analysis Results Data
+    2. ae_summary_df: Transform to display format
+    3. ae_summary_rtf: Generate RTF output and write to file
+
+    Args:
+        population: Population DataFrame (subject-level data, e.g., ADSL)
+        observation: Observation DataFrame (event data, e.g., ADAE)
+        population_filter: SQL WHERE clause for population (can be None)
+        observation_filter: SQL WHERE clause for observation (can be None)
+        id: Tuple (variable_name, label) for ID column
+        group: Tuple (variable_name, label) for grouping variable
+        variables: List of tuples [(filter, label)] for analysis variables
+        title: Title for RTF output as list of strings
+        footnote: Optional footnote for RTF output as list of strings
+        source: Optional source for RTF output as list of strings
+        output_file: File path to write RTF output
+        total: Whether to include total column (default: True)
+        col_rel_width: Optional column widths for RTF output
+        missing_group: How to handle missing group values (default: "error")
+
+    Returns:
+        str: Path to the generated RTF file
+    """
+    # Step 1: Generate ARD
+    ard = ae_summary_ard(
+        population=population,
+        observation=observation,
+        population_filter=population_filter,
+        observation_filter=observation_filter,
+        id=id,
+        group=group,
+        variables=variables,
+        total=total,
+        missing_group=missing_group,
+    )
+
+    # Step 2: Transform to display format
+    df = ae_summary_df(ard)
+
+    # Step 3: Generate RTF and write to file
+    rtf_doc = ae_summary_rtf(
+        df=df,
+        title=title,
+        footnote=footnote,
+        source=source,
+        col_rel_width=col_rel_width,
+    )
+    rtf_doc.write_rtf(output_file)
+
+    return output_file
 
 def ae_summary_ard(
     population: pl.DataFrame,
@@ -29,30 +211,26 @@ def ae_summary_ard(
     variables: list[tuple[str, str]],
     total: bool,
     missing_group: str,
-) -> dict[str, Any]:
+) -> pl.DataFrame:
     """
-    Core AE summary function for generating Analysis Results Data (ARD) - decoupled from StudyPlan.
+    Generate Analysis Results Data (ARD) for AE summary analysis.
 
-    Generates summary statistics showing the number and percentage
-    of subjects experiencing adverse events, organized hierarchically by
-    System Organ Class (SOC) and Preferred Term (PT).
+    Creates a long-format DataFrame with standardized structure (__index__, __group__, __value__)
+    containing population counts and observation statistics for each analysis variable.
 
     Args:
         population: Population DataFrame (subject-level data, e.g., ADSL)
         observation: Observation DataFrame (event data, e.g., ADAE)
         population_filter: SQL WHERE clause for population (can be None)
         observation_filter: SQL WHERE clause for observation (can be None)
+        id: Tuple (variable_name, label) for ID column
         group: Tuple (variable_name, label) for grouping variable
         variables: List of tuples [(filter, label)] for analysis variables
-        id: Tuple of ID column name(s) for counting (default: ("USUBJID",))
-        total: Whether to include total column in counts (default: False)
-        missing_group: How to handle missing group values: "error", "ignore", or "fill" (default: "error")
+        total: Whether to include total column in counts
+        missing_group: How to handle missing group values: "error", "ignore", or "fill"
 
     Returns:
-        Dictionary containing:
-        - meta: Analysis metadata
-        - n_pop: Population denominators by group
-        - summary: Summary statistics with SOC/PT hierarchy
+        pl.DataFrame: Long-format ARD with columns __index__, __group__, __value__
     """
     # Extract group variable name (label is in tuple but not needed separately)
     pop_var_name = "Participants in Population"
@@ -138,158 +316,6 @@ def ae_summary_ard(
 
     return res
 
-def study_plan_to_ae_summary(
-    study_plan: StudyPlan,
-) -> list[str]:
-    """
-    Generate AE summary RTF outputs for all analyses defined in StudyPlan.
-
-    This function reads the expanded plan from StudyPlan and generates
-    an RTF table for each analysis specification automatically.
-
-    Args:
-        study_plan: StudyPlan object with loaded datasets and analysis specifications
-
-    Returns:
-        list[str]: List of paths to generated RTF files
-    """
-
-    # Meta data
-    analysis = "ae_summary"
-    analysis_label = "Analysis of Adverse Event Summary"
-    output_dir = "examples/tlf"
-    footnote = ["Every participant is counted a single time for each applicable row and column."]
-    source = None
-
-    # Create output directory if it doesn't exist
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-
-    # Get expanded plan DataFrame
-    plan_df = study_plan.get_plan_df()
-
-    # Filter for AE summary analyses
-    ae_plans = plan_df.filter(pl.col("analysis") == analysis)
-
-    rtf_files = []
-
-    # Generate RTF for each analysis
-    for row in ae_plans.iter_rows(named=True):
-        population = row["population"]
-        observation = row.get("observation")
-        parameter = row["parameter"]
-
-        # Get group - must be specified in YAML
-        group = row.get("group")
-        if group is None:
-            raise ValueError(f"Group not specified in YAML for analysis: population={population}, observation={observation}, parameter={parameter}. Please add group to your YAML plan.")
-
-        # Build title with population and observation context
-        title_parts = [analysis_label]
-        if observation:
-            obs_kw = study_plan.keywords.observations.get(observation)
-            if obs_kw and obs_kw.label:
-                title_parts.append(f"({obs_kw.label})")
-
-        pop_kw = study_plan.keywords.populations.get(population)
-        if pop_kw and pop_kw.label:
-            title_parts.append(f"({pop_kw.label})")
-
-        # Build output filename
-        filename = f"{analysis}_{population}"
-        if observation:
-            filename += f"_{observation}"
-        filename += f"_{parameter.replace(';', '_')}.rtf"
-        output_file = str(Path(output_dir) / filename)
-
-        # Generate RTF
-        rtf_path = ae_summary(
-            study_plan=study_plan,
-            population=population,
-            title=title_parts,
-            footnote=footnote,
-            source=source,
-            output_file=output_file,
-            observation=observation,
-            parameter=parameter,
-            group=group,
-        )
-
-        rtf_files.append(rtf_path)
-
-    return rtf_files
-
-
-def ae_summary(
-    population: pl.DataFrame,
-    observation: pl.DataFrame,
-    population_filter: str | None,
-    observation_filter: str | None,
-    id: tuple[str, str],
-    group: tuple[str, str],
-    variables: list[tuple[str, str]],
-    title: list[str],
-    footnote: list[str] | None,
-    source: list[str] | None,
-    output_file: str,
-    total: bool = True,
-    col_rel_width: list[float] | None = None,
-    missing_group: str = "error",
-) -> str:
-    """
-    Complete AE summary pipeline wrapper.
-
-    This function orchestrates the three-step pipeline:
-    1. ae_summary_ard: Generate Analysis Results Data
-    2. ae_summary_df: Transform to display format
-    3. ae_summary_rtf: Generate RTF output and write to file
-
-    Args:
-        population: Population DataFrame (subject-level data, e.g., ADSL)
-        observation: Observation DataFrame (event data, e.g., ADAE)
-        population_filter: SQL WHERE clause for population (can be None)
-        observation_filter: SQL WHERE clause for observation (can be None)
-        id: Tuple (variable_name, label) for ID column
-        group: Tuple (variable_name, label) for grouping variable
-        variables: List of tuples [(filter, label)] for analysis variables
-        title: Title for RTF output as list of strings
-        footnote: Optional footnote for RTF output as list of strings
-        source: Optional source for RTF output as list of strings
-        output_file: File path to write RTF output
-        total: Whether to include total column (default: False)
-        missing_group: How to handle missing group values (default: "error")
-        col_rel_width: Optional column widths for RTF output
-
-    Returns:
-        str: Path to the generated RTF file
-    """
-    # Step 1: Generate ARD
-    ard = ae_summary_ard(
-        population=population,
-        observation=observation,
-        population_filter=population_filter,
-        observation_filter=observation_filter,
-        id=id,
-        group=group,
-        variables=variables,
-        total=total,
-        missing_group=missing_group,
-    )
-
-    # Step 2: Transform to display format
-    df = ae_summary_df(ard)
-
-    # Step 3: Generate RTF and write to file
-    rtf_doc = ae_summary_rtf(
-        df=df,
-        title=title,
-        footnote=footnote,
-        source=source,
-        col_rel_width=col_rel_width,
-    )
-    rtf_doc.write_rtf(output_file)
-
-    return output_file
-
 
 def ae_summary_df(ard: pl.DataFrame) -> pl.DataFrame:
     """
@@ -300,8 +326,6 @@ def ae_summary_df(ard: pl.DataFrame) -> pl.DataFrame:
 
     Args:
         ard: Analysis Results Data DataFrame with __index__, __group__, __value__ columns
-        split_n_pct: If True, split "n (%)" into separate "n" and "(%)" columns for each group.
-                     Useful for RTF tables with multi-level headers. Defaults to False.
 
     Returns:
         pl.DataFrame: Wide-format display table with groups as columns
@@ -322,7 +346,7 @@ def ae_summary_rtf(
     footnote: list[str] | None,
     source: list[str] | None,
     col_rel_width: list[float] | None = None,
-) -> str:
+) -> RTFDocument:
     """
     Generate RTF table from AE summary display DataFrame.
 
@@ -331,24 +355,14 @@ def ae_summary_rtf(
 
     Args:
         df: Display DataFrame from ae_summary_df (wide format with __index__ column)
-        title: Title(s) for the table as list of strings.
-        footnote: Optional footnote(s) as list of strings.
-        source: Optional source note(s) as list of strings.
+        title: Title(s) for the table as list of strings
+        footnote: Optional footnote(s) as list of strings
+        source: Optional source note(s) as list of strings
         col_rel_width: Optional list of relative column widths. If None, auto-calculated
-                       as [n_cols-1, 1, 1, 1, ...] where n_cols is total column count.
+                       as [n_cols-1, 1, 1, 1, ...] where n_cols is total column count
 
     Returns:
-        RTF document as string
-
-    Example:
-        >>> ard = ae_summary_ard(population, observation, ...)
-        >>> df = ae_summary_df(ard)
-        >>> rtf = ae_summary_rtf(
-        ...     df,
-        ...     title=["Analysis of Adverse Event Summary", "(Safety Analysis Population)"],
-        ...     footnote=["Every participant is counted a single time for each applicable row and column."],
-        ...     source=["Source: ADSL and ADAE datasets"]
-        ... )
+        RTFDocument: RTF document object that can be written to file
     """
 
     # Rename __index__ to empty string for display
