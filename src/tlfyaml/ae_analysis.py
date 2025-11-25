@@ -66,7 +66,7 @@ def ae_summary_core(
         ...     observation_filter=None,
         ...     group=("TRT01A", "Treatment Group"),
         ...     variables=[("TRTEMFL = 'Y'", "Any AE")],
-        ...     id=("USUBJID",),
+        ...     id=("USUBJID",, "Subject ID"),
         ...     total=False,
         ...     missing_group="error"
         ... )
@@ -76,27 +76,32 @@ def ae_summary_core(
     id_var_name, id_var_label = id
     group_var_name, group_var_label = group
 
-    # Extract variable filters and labels
-    variable_filters = [f for f, _ in variables]
-    variable_labels = [l for _, l in variables]
-
     # Apply population filter using pl.sql_expr()
     if population_filter:
         population_filtered = population.filter(pl.sql_expr(population_filter))
-    else: 
+    else:
         population_filtered = population
 
-    # Filter observation data to include only subjects in the filtered population
-    # and apply observation-specific filter if provided
-    observation_filtered = (
-        observation
-        .filter(pl.col(id_var_name).is_in(population_filtered[id_var_name].to_list()))
-        .filter(pl.sql_expr(variable_filters[0]))
-        .with_columns(pl.lit(variable_labels[0]).alias("__index__"))
-    )
-
+    # Apply observation filter once if provided
+    observation_to_filter = observation
     if observation_filter:
-        observation_filtered = observation_filtered.filter(pl.sql_expr(observation_filter)) 
+        observation_to_filter = observation_to_filter.filter(pl.sql_expr(observation_filter))
+
+    # Filter observation data to include only subjects in the filtered population
+    # Process all variables in the list
+    observation_filtered_list = []
+    for variable_filter, variable_label in variables:
+        obs_filtered = (
+            observation_to_filter
+            .filter(pl.col(id_var_name).is_in(population_filtered[id_var_name].to_list()))
+            .filter(pl.sql_expr(variable_filter))
+            .with_columns(pl.lit(variable_label).alias("__index__"))
+        )
+
+        observation_filtered_list.append(obs_filtered)
+
+    # Concatenate all filtered observations
+    observation_filtered = pl.concat(observation_filtered_list) 
 
     # Population
     n_pop = count_subject(
@@ -106,11 +111,11 @@ def ae_summary_core(
         total=total,
         missing_group=missing_group
     )
-    
+
     n_pop = n_pop.select(
         pl.lit(pop_var_name).alias("__index__"),
         pl.col(group_var_name).alias("__group__"),
-        pl.col("n_subj_pop").alias("__value__")
+        pl.col("n_subj_pop").cast(pl.String).alias("__value__")
     )
 
     # Observation
@@ -182,25 +187,29 @@ def ae_summary(
     group_tuple = (group_var_name, group_var_label)
 
     # Call core function
-    result = ae_summary_core(
+    result_df = ae_summary_core(
         population=population_df,
         observation=observation_df,
         population_filter=population_filter,
         observation_filter=obs_filter,
+        id=("USUBJID", "Subject ID"),
         group=group_tuple,
         variables=variables_list,
+        total=False,
+        missing_group="error",
     )
 
-    # Add StudyPlan-specific metadata and group labels
-    result["meta"].update(
-        {
+    # Create result dictionary with metadata
+    result = {
+        "meta": {
             "population": population,
             "observation": observation,
             "parameter": param_names,
             "group": group,
-        }
-    )
-    result["group_labels"] = group_labels
+        },
+        "group_labels": group_labels,
+        "data": result_df,
+    }
 
     return result
 
