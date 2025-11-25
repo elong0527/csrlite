@@ -3,12 +3,9 @@ from .plan import (
     load_plan,
 )
 
-from .ae_analysis import (
+from .ae_summary import (
     # AE analysis functions
-    ae_summary,
-    ae_summary_ard,
-    ae_summary_df,
-    ae_summary_to_rtf,
+    study_plan_to_ae_summary,
 )
 
 from .count import (
@@ -25,11 +22,8 @@ from .parse import (
 __all__ = [
     # Primary user interface
     "load_plan",
-    # AE analysis
-    "ae_summary",
-    "ae_summary_ard",
-    "ae_summary_df",
-    "ae_summary_to_rtf",
+    # AE analysis (StudyPlan integration)
+    "study_plan_to_ae_summary",
     # Count functions
     "count_subject",
     "count_subject_with_observation",
