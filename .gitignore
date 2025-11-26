@@ -2,6 +2,8 @@
 __pycache__/
 *.py[cod]
 *$py.class
+_site/ 
+_freeze/ 
 
 # C extensions
 *.so
@@ -147,3 +149,4 @@ Thumbs.db
 # Project specific
 examples/output/
 *.rtf
+/.quarto/

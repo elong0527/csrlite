@@ -24,8 +24,8 @@ from tlfyaml import count_subject, count_subject_with_observation
 ```
 
 ```{python}
-adsl = pl.read_parquet("../data/adsl.parquet")
-adae = pl.read_parquet("../data/adae.parquet")
+adsl = pl.read_parquet("data/adsl.parquet")
+adae = pl.read_parquet("data/adae.parquet")
 ```
 
 # Population 

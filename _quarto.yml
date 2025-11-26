@@ -1,7 +1,8 @@
 project:
   type: book
   output-dir: _site
-
+  execute-dir: project
+  
 book:
   title: "Review Oriented Development (ROD)"
   author:
@@ -16,13 +17,17 @@ book:
   reader-mode: true
 
   chapters:
-    - index.qmd
-    - inheritance.qmd
-    - plan.qmd
+    - part: "Design"
+      chapters:
+      - index.qmd
+      - docs/inheritance.qmd
+      - docs/plan.qmd
+    - part: "Adverse Events"
+      chapters: 
+        - docs/ae_summary.qmd
     - part: "Appendix"
       chapters:
-        - count.qmd
-
+        - docs/count.qmd
 
 format:
   html:

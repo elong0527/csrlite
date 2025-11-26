@@ -23,7 +23,10 @@ import polars as pl
 import rtflite as rtf 
 
 # Add src to path for imports
-sys.path.insert(0, str(Path.cwd().parent / 'src'))
+sys.path.insert(0, 'src')
+
+from rtflite import LibreOfficeConverter
+converter = LibreOfficeConverter()
 ```
 
 ```{python}
@@ -50,8 +53,18 @@ study_plan.get_plan_df().filter(pl.col("analysis") == "ae_summary")
 The `study_plan_to_ae_summary` function automatically generates RTF outputs for all AE summary analyses defined in the plan:
 
 ```{python}
-study_plan_to_ae_summary(study_plan)
+output_files = study_plan_to_ae_summary(study_plan)
 ```
+
+```{python}
+#| echo: false
+for file in output_files:
+    converter.convert(file, output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+<embed src="examples/rtf/ae_summary_apat_week12_any_rel_ser.rtf" style="width:100%; height:600px" type="application/pdf">
+
+<embed src="examples/rtf/ae_summary_apat_week24_any_rel_ser.rtf" style="width:100%; height:600px" type="application/pdf">
 
 **How it works:**
 1. Reads the expanded plan DataFrame
@@ -154,6 +167,15 @@ ae_summary(
 )
 ```
 
+```{python}
+#| echo: false
+converter.convert("examples/rtf/ae_summary.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+<embed src="pdf/ae_summary.pdf" style="width:100%; height:600px" type="application/pdf">
+
+
+
 ## Step-by-Step Pipeline
 
 This section demonstrates each step of the pipeline individually, allowing you to inspect intermediate outputs and understand the data transformation at each stage.
@@ -216,6 +238,13 @@ ae_summary_rtf(
     col_rel_width=[4, 2, 2, 2, 2]  # Optional: defaults to auto-calculated widths
 ).write_rtf("examples/rtf/ae_summary_step.rtf")
 ```
+
+```{python}
+#| echo: false
+converter.convert("examples/rtf/ae_summary_step.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+<embed src="pdf/ae_summary_step.pdf" style="width:100%; height:600px" type="application/pdf">
 
 **Output:** RTFDocument object that can be written to file using `.write_rtf()`.
 
