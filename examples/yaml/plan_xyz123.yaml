@@ -39,6 +39,7 @@ plans:
 population:
   - name: apat
     filter: "adsl:saffl == 'Y'"
+    
   - name: itt
     filter: "adsl:ittfl == 'Y'"
 
@@ -47,6 +48,7 @@ observation:
     label: "Week 0 to 12"
     description: "12-week post-baseline assessment"
     filter: "adae:aendy <= 12*7"
+
   - name: week24
     label: "Week 0 to 24"
     description: "24-week post-baseline assessment"
@@ -60,6 +62,7 @@ population:
   - name: apat
     label: "All Participants as Treated"
     filter: "adsl:saffl == 'Y'"
+
   - name: itt
     label: "Intention-to-Treat"
     filter: "adsl:ittfl == 'Y'"
@@ -68,12 +71,32 @@ parameter:
   - name: any
     label: "with one or more adverse events"
     filter: "adae:trtemfl == 'Y'"
+
   - name: rel
     label: "with drug-related adverse events"
+    terms:
+      before: "drug-related"
     filter: "adae:trtemfl == 'Y' and adae:aerel in ['PROBABLE', 'POSSIBLE']"
+
   - name: ser
     label: "with serious adverse events"
     filter: "adae:trtemfl == 'Y' and adae:aeser == 'Y'"
+    terms:
+      before: "serious"
+
+  - name: death
+    label: "with adverse events resulting in death"
+    filter: "adae:trtemfl == 'Y' and adae:ae"
+    terms:
+      after: "resulting in death"
+    
+  - name: ser_death
+    label: "with serious adverse events resulting in death"
+    filter: "adae:trtemfl == 'Y' and adae:aeser == 'Y' and adae:ae"
+    terms:
+      before: "serious"
+      after: "resulting in death"
+    
 
 data:
   - name: adsl 

@@ -25,6 +25,78 @@ from .count import count_subject, count_subject_with_observation
 from .parse import StudyPlanParser
 
 
+def _get_parameter_row_labels(param) -> tuple[str, str]:
+    """
+    Generate n_with and n_without row labels based on parameter terms.
+
+    Returns:
+        Tuple of (n_with_label, n_without_label)
+
+    Examples:
+        No terms -> ("    with one or more adverse events", "    with no adverse events")
+        before: "serious" -> ("    with one or more serious adverse events", "    with no serious adverse events")
+        after: "resulting in death" -> ("    with one or more adverse events resulting in death", "    with no adverse events resulting in death")
+    """
+    # Default labels
+    default_with = "    with one or more adverse events"
+    default_without = "    with no adverse events"
+
+    if not param or not hasattr(param, 'terms') or not param.terms:
+        return (default_with, default_without)
+
+    terms = param.terms
+    before = terms.get('before', '').lower()
+    after = terms.get('after', '').lower()
+
+    # Build dynamic labels with leading indentation
+    with_label = f"with one or more {before} adverse events {after}"
+    without_label = f"with no {before} adverse events {after}"
+
+    # Clean up extra spaces and add back the 4-space indentation
+    with_label = "    " + " ".join(with_label.split())
+    without_label = "    " + " ".join(without_label.split())
+
+    return (with_label, without_label)
+
+
+def _get_parameter_title(param) -> str:
+    """
+    Extract title from parameter for ae_specific title generation.
+
+    Supports parameter.terms patterns:
+    1. Both before and after: {"before": "serious", "after": "resulting in death"}
+       -> "Participants With Serious Adverse Events Resulting In Death"
+    2. Only before: {"before": "serious"}
+       -> "Participants With Serious Adverse Events"
+    3. Only after: {"after": "resulting in death"}
+       -> "Participants With Adverse Events Resulting In Death"
+
+    Args:
+        param: Parameter object with terms attribute
+
+    Returns:
+        Title string for the analysis (defaults to "Participants With Adverse Events")
+    """
+    default_title = "Participants With Adverse Events"
+    if not param:
+        return default_title
+
+    # Check for terms attribute
+    if hasattr(param, 'terms') and param.terms and isinstance(param.terms, dict):
+        terms = param.terms
+
+        # Preprocess to empty strings (avoiding None)
+        before = terms.get('before', '').title()
+        after = terms.get('after', '').title()
+
+        # Build title and clean up extra spaces
+        title = f"Participants With {before} Adverse Events {after}"
+        return " ".join(title.split())  # Remove extra spaces
+
+    # Fallback to default
+    return default_title
+
+
 def ae_specific_ard(
     population: pl.DataFrame,
     observation: pl.DataFrame,
@@ -36,6 +108,8 @@ def ae_specific_ard(
     ae_term: tuple[str, str],
     total: bool = True,
     missing_group: str = "error",
+    n_with_label: str = "    with one or more adverse events",
+    n_without_label: str = "    with no adverse events",
 ) -> pl.DataFrame:
     """
     Generate Analysis Results Data (ARD) for AE specific analysis.
@@ -54,14 +128,14 @@ def ae_specific_ard(
         ae_term: Tuple (variable_name, label) for AE term column
         total: Whether to include total column in counts
         missing_group: How to handle missing group values: "error", "ignore", or "fill"
+        n_with_label: Label for "with one or more" row (dynamic based on parameter)
+        n_without_label: Label for "with no" row (dynamic based on parameter)
 
     Returns:
         pl.DataFrame: Long-format ARD with columns __index__, __group__, __value__
     """
     # Extract variable names
     pop_var_name = "Participants in population"
-    n_with_label = "    with one or more adverse events"
-    n_without_label = "    with no adverse events"
     id_var_name, id_var_label = id
     group_var_name, group_var_label = group
     ae_term_var_name, ae_term_var_label = ae_term
@@ -328,6 +402,8 @@ def ae_specific(
     total: bool = True,
     col_rel_width: list[float] | None = None,
     missing_group: str = "error",
+    n_with_label: str = "    with one or more adverse events",
+    n_without_label: str = "    with no adverse events",
 ) -> str:
     """
     Complete AE specific pipeline wrapper.
@@ -353,6 +429,8 @@ def ae_specific(
         total: Whether to include total column (default: True)
         col_rel_width: Optional column widths for RTF output
         missing_group: How to handle missing group values (default: "error")
+        n_with_label: Label for "with one or more" row (dynamic based on parameter)
+        n_without_label: Label for "with no" row (dynamic based on parameter)
 
     Returns:
         str: Path to the generated RTF file
@@ -369,6 +447,8 @@ def ae_specific(
         ae_term=ae_term,
         total=total,
         missing_group=missing_group,
+        n_with_label=n_with_label,
+        n_without_label=n_without_label,
     )
 
     # Step 2: Transform to display format
@@ -466,8 +546,13 @@ def study_plan_to_ae_specific(
         group_var_label = group_labels[0] if group_labels else group_var_name
         group_tuple = (group_var_name, group_var_label)
 
+        # Build dynamic title and row labels based on parameter
+        param = study_plan.keywords.get_parameter(parameter) if parameter else None
+        dynamic_title = _get_parameter_title(param)
+        n_with_label, n_without_label = _get_parameter_row_labels(param)
+
         # Build title with population and observation context
-        title_parts = [analysis_label]
+        title_parts = [dynamic_title]
         if observation:
             obs_kw = study_plan.keywords.observations.get(observation)
             if obs_kw and obs_kw.label:
@@ -502,6 +587,8 @@ def study_plan_to_ae_specific(
             output_file=output_file,
             total=total,
             missing_group=missing_group,
+            n_with_label=n_with_label,
+            n_without_label=n_without_label,
         )
 
         rtf_files.append(rtf_path)

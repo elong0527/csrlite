@@ -39,9 +39,15 @@ class Observation(Keyword):
 
 @dataclass
 class Parameter(Keyword):
-    """Parameter definition with filter."""
+    """Parameter definition with filter.
+
+    The terms field supports dynamic title generation:
+    - terms.before: "serious" → "Serious Adverse Events"
+    - terms.after: "resulting in death" → "Adverse Events Resulting in Death"
+    """
 
     filter: str = ""
+    terms: Optional[Dict[str, str]] = None
 
 
 @dataclass
