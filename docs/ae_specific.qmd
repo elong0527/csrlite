@@ -1,0 +1,147 @@
+---
+title: "AE Specific Analysis"
+---
+
+::: {.callout-note}
+## Objectives
+
+This guide demonstrates AE specific analysis showing individual adverse event terms. For design philosophy and architecture details, see [ae_summary.qmd](ae_summary.qmd).
+:::
+
+## Setup
+
+```{python}
+#| message: false
+import sys
+from pathlib import Path
+import polars as pl
+
+sys.path.insert(0, 'src')
+
+from rtflite import LibreOfficeConverter
+converter = LibreOfficeConverter()
+```
+
+```{python}
+from tlfyaml import load_plan, study_plan_to_ae_specific
+from tlfyaml.ae_specific import ae_specific_ard, ae_specific_df, ae_specific_rtf, ae_specific
+```
+
+## What's Different?
+
+**AE Summary** shows high-level event categories (e.g., "Any AE", "Serious AE").
+
+**AE Specific** shows detailed listings of individual adverse event terms (e.g., "APPLICATION SITE ERYTHEMA", "DIARRHOEA").
+
+## StudyPlan-Driven Workflow
+
+```{python}
+study_plan = load_plan("examples/yaml/plan_xyz123.yaml")
+study_plan.get_plan_df().filter(pl.col("analysis") == "ae_specific")
+```
+
+```{python}
+output_files = study_plan_to_ae_specific(study_plan)
+```
+
+```{python}
+#| echo: false
+for file in output_files:
+    converter.convert(file, output_dir="pdf/", format="pdf", overwrite=True)
+```
+
+<embed src="pdf/ae_specific_apat_week12_rel.pdf" style="width:100%; height:600px" type="application/pdf">
+
+## Complete Pipeline
+
+```{python}
+adsl = pl.read_parquet("data/adsl.parquet")
+adae = pl.read_parquet("data/adae.parquet")
+
+ae_specific(
+    population=adsl,
+    observation=adae,
+    population_filter="SAFFL = 'Y'",
+    observation_filter="TRTEMFL = 'Y'",
+    id=("USUBJID", "Subject ID"),
+    group=("TRT01A", "Treatment Group"),
+    ae_term=("AEDECOD", "Adverse Event"),
+    title=[
+        "Analysis of Specific Adverse Events",
+        "(Treatment-Emergent, Safety Population)"
+    ],
+    footnote=[
+        "Every participant is counted a single time for each applicable row and column."
+    ],
+    source=["Source: ADSL and ADAE datasets"],
+    output_file="examples/rtf/ae_specific.rtf",
+    total=True,
+    missing_group="error"
+)
+```
+
+```{python}
+#| echo: false
+converter.convert("examples/rtf/ae_specific.rtf", output_dir="pdf/", format="pdf", overwrite=True)
+```
+
+<embed src="pdf/ae_specific.pdf" style="width:100%; height:600px" type="application/pdf">
+
+## Step-by-Step Pipeline
+
+### Step 1: Generate ARD
+
+**Key Parameter:**
+- `ae_term`: Tuple (variable_name, label) for AE term column (default: ("AEDECOD", "Adverse Event"))
+
+```{python}
+_ard = ae_specific_ard(
+    population=adsl,
+    observation=adae,
+    population_filter="SAFFL = 'Y'",
+    observation_filter="TRTEMFL = 'Y'",
+    id=("USUBJID", "Subject ID"),
+    group=("TRT01A", "Treatment Group"),
+    ae_term=("AEDECOD", "Adverse Event"),
+    total=True,
+    missing_group="error"
+)
+
+_ard
+```
+
+**Output Structure:** Long format with `__index__`, `__group__`, `__value__` columns.
+
+### Step 2: Transform to Display Format
+
+```{python}
+_df = ae_specific_df(_ard)
+_df
+```
+
+**Output Structure:** Wide format with "Term" column showing AE terms and treatment groups as columns.
+
+### Step 3: Generate RTF Output
+
+```{python}
+ae_specific_rtf(
+    _df,
+    title=[
+        "Analysis of Specific Adverse Events",
+        "(Treatment-Emergent, Safety Population)"
+    ],
+    footnote=[
+        "Every participant is counted a single time for each applicable row and column."
+    ],
+    source=["Source: ADSL and ADAE datasets"],
+    ae_term_label="Adverse Event",
+    col_rel_width=[4, 2, 2, 2, 2]
+).write_rtf("examples/rtf/ae_specific_step.rtf")
+```
+
+```{python}
+#| echo: false
+converter.convert("examples/rtf/ae_specific_step.rtf", output_dir="pdf/", format="pdf", overwrite=True)
+```
+
+<embed src="pdf/ae_specific_step.pdf" style="width:100%; height:600px" type="application/pdf">

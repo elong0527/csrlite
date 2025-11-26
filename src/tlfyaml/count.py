@@ -155,7 +155,13 @@ def count_subject_with_observation(
             pct_subj = (pl.col("n_subj") / pl.col("n_subj_pop") * 100)
         )
         .with_columns(
-            pct_subj_fmt = pl.col("pct_subj").round(pct_digit, mode = "half_away_from_zero").cast(pl.String)
+            pct_subj_fmt = (
+                pl.when(pl.col("pct_subj").is_null() | pl.col("pct_subj").is_nan())
+                  .then(0.0)
+                  .otherwise(pl.col("pct_subj"))
+                  .round(pct_digit, mode = "half_away_from_zero")
+                  .cast(pl.String)
+            )
         )
     )
 
@@ -171,7 +177,7 @@ def count_subject_with_observation(
         pl.col("pct_subj_fmt").str.pad_start(max_pct_width, " "),
         pl.col("n_subj").cast(pl.String).str.pad_start(max_n_width, " ").alias("n_subj_fmt")
     ]).with_columns(
-        n_pct_subj_fmt = pl.format("{} ({})", pl.col("n_subj_fmt"), pl.col("pct_subj_fmt"))
+        n_pct_subj_fmt = pl.concat_str([pl.col("n_subj_fmt"), pl.lit(" ("), pl.col("pct_subj_fmt"), pl.lit(")")])
     ).sort(group, variable)
 
     return df_obs
