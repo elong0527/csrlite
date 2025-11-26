@@ -30,6 +30,7 @@ def ae_specific_ard(
     observation: pl.DataFrame,
     population_filter: str | None,
     observation_filter: str | None,
+    parameter_filter: str | None,
     id: tuple[str, str],
     group: tuple[str, str],
     ae_term: tuple[str, str],
@@ -47,6 +48,7 @@ def ae_specific_ard(
         observation: Observation DataFrame (event data, e.g., ADAE)
         population_filter: SQL WHERE clause for population (can be None)
         observation_filter: SQL WHERE clause for observation (can be None)
+        parameter_filter: SQL WHERE clause for parameter filtering (can be None)
         id: Tuple (variable_name, label) for ID column
         group: Tuple (variable_name, label) for grouping variable
         ae_term: Tuple (variable_name, label) for AE term column
@@ -74,6 +76,10 @@ def ae_specific_ard(
     observation_to_filter = observation
     if observation_filter:
         observation_to_filter = observation_to_filter.filter(pl.sql_expr(observation_filter))
+
+    # Apply parameter filter
+    if parameter_filter:
+        observation_to_filter = observation_to_filter.filter(pl.sql_expr(parameter_filter))
 
     # Filter observation to include only subjects in filtered population
     observation_filtered = observation_to_filter.filter(
@@ -311,6 +317,7 @@ def ae_specific(
     observation: pl.DataFrame,
     population_filter: str | None,
     observation_filter: str | None,
+    parameter_filter: str | None,
     id: tuple[str, str],
     group: tuple[str, str],
     title: list[str],
@@ -335,6 +342,7 @@ def ae_specific(
         observation: Observation DataFrame (event data, e.g., ADAE)
         population_filter: SQL WHERE clause for population (can be None)
         observation_filter: SQL WHERE clause for observation (can be None)
+        parameter_filter: SQL WHERE clause for parameter filtering (can be None)
         id: Tuple (variable_name, label) for ID column
         group: Tuple (variable_name, label) for grouping variable
         title: Title for RTF output as list of strings
@@ -355,6 +363,7 @@ def ae_specific(
         observation=observation,
         population_filter=population_filter,
         observation_filter=observation_filter,
+        parameter_filter=parameter_filter,
         id=id,
         group=group,
         ae_term=ae_term,
@@ -397,7 +406,7 @@ def study_plan_to_ae_specific(
     # Meta data
     analysis = "ae_specific"
     analysis_label = "Participants with Adverse Events"
-    output_dir = "examples/tlf"
+    output_dir = "examples/rtf"
     footnote = [
         "Every participant is counted a single time for each applicable row and column."
     ]
@@ -443,6 +452,14 @@ def study_plan_to_ae_specific(
         # Get filters and configuration using parser
         population_filter = parser.get_population_filter(population)
         obs_filter = parser.get_observation_filter(observation)
+
+        # Get parameter filter if parameter is specified
+        parameter_filter = None
+        if parameter:
+            param_names, param_filters, param_labels = parser.get_parameter_info(parameter)
+            # For ae_specific, use the first (and typically only) filter
+            parameter_filter = param_filters[0] if param_filters else None
+
         group_var_name, group_labels = parser.get_group_info(group)
 
         # Build group tuple
@@ -475,6 +492,7 @@ def study_plan_to_ae_specific(
             observation=observation_df,
             population_filter=population_filter,
             observation_filter=obs_filter,
+            parameter_filter=parameter_filter,
             id=id,
             group=group_tuple,
             ae_term=ae_term,

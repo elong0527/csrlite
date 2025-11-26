@@ -2,7 +2,10 @@ project:
   type: book
   output-dir: _site
   execute-dir: project
-  
+  resources:
+    - CNAME
+    - docs/images
+    
 book:
   title: "Review Oriented Development (ROD)"
   author:

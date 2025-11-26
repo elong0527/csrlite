@@ -30,7 +30,7 @@ Implement a hierarchical YAML-based Review-Oriented Development (ROD) framework 
 :::
 
 ::: {layout-ncol="2"}
-![](images/plan.png){group="a"}
+![](docs/images/plan.png){group="a"}
 :::
 
 
