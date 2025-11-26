@@ -44,11 +44,11 @@ population:
 
 observation:
   - name: week12
-    label: "Week 12"
+    label: "Week 0 to 12"
     description: "12-week post-baseline assessment"
     filter: "adae:aendy <= 12*7"
   - name: week24
-    label: "Week 24"
+    label: "Week 0 to 24"
     description: "24-week post-baseline assessment"
     filter: "adae:aendy <= 24*7"
 

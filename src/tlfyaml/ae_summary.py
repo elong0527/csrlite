@@ -95,11 +95,11 @@ def study_plan_to_ae_summary(
         if observation:
             obs_kw = study_plan.keywords.observations.get(observation)
             if obs_kw and obs_kw.label:
-                title_parts.append(f"({obs_kw.label})")
+                title_parts.append(obs_kw.label)
 
         pop_kw = study_plan.keywords.populations.get(population)
         if pop_kw and pop_kw.label:
-            title_parts.append(f"({pop_kw.label})")
+            title_parts.append(pop_kw.label)
 
         # Build output filename
         filename = f"{analysis}_{population}"

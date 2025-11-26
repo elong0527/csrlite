@@ -224,7 +224,6 @@ def ae_specific_rtf(
     title: list[str],
     footnote: list[str] | None,
     source: list[str] | None,
-    ae_term_label: str = "Adverse Event",
     col_rel_width: list[float] | None = None,
 ) -> RTFDocument:
     """
@@ -238,7 +237,6 @@ def ae_specific_rtf(
         title: Title(s) for the table as list of strings
         footnote: Optional footnote(s) as list of strings
         source: Optional source note(s) as list of strings
-        ae_term_label: Label for the AE term column (default: "Adverse Event")
         col_rel_width: Optional list of relative column widths. If None, auto-calculated
                        as [n_cols-1, 1, 1, 1, ...] where n_cols is total column count
 
@@ -256,11 +254,11 @@ def ae_specific_rtf(
     col_header_1 = df_rtf.columns
 
     # Build second-level column headers
-    col_header_2 = [ae_term_label] + ["n (%)"] * (n_cols - 1)
+    col_header_2 = [""] + ["n (%)"] * (n_cols - 1)
 
     # Calculate column widths
     if col_rel_width is None:
-        col_widths = [n_cols - 1] + [1] * (n_cols - 1)
+        col_widths = [n_cols/1.5] + [1] * (n_cols - 1)
     else:
         col_widths = col_rel_width
 
@@ -319,7 +317,7 @@ def ae_specific(
     footnote: list[str] | None,
     source: list[str] | None,
     output_file: str,
-    ae_term: tuple[str, str] = ("AEDECOD", "Adverse Event"),
+    ae_term: tuple[str, str],
     total: bool = True,
     col_rel_width: list[float] | None = None,
     missing_group: str = "error",
@@ -351,9 +349,6 @@ def ae_specific(
     Returns:
         str: Path to the generated RTF file
     """
-    # Extract ae_term label for RTF
-    _, ae_term_label = ae_term
-
     # Step 1: Generate ARD
     ard = ae_specific_ard(
         population=population,
@@ -376,7 +371,6 @@ def ae_specific(
         title=title,
         footnote=footnote,
         source=source,
-        ae_term_label=ae_term_label,
         col_rel_width=col_rel_width,
     )
     rtf_doc.write_rtf(output_file)
@@ -402,7 +396,7 @@ def study_plan_to_ae_specific(
 
     # Meta data
     analysis = "ae_specific"
-    analysis_label = "Analysis of Specific Adverse Events"
+    analysis_label = "Participants with Adverse Events"
     output_dir = "examples/tlf"
     footnote = [
         "Every participant is counted a single time for each applicable row and column."
@@ -460,11 +454,11 @@ def study_plan_to_ae_specific(
         if observation:
             obs_kw = study_plan.keywords.observations.get(observation)
             if obs_kw and obs_kw.label:
-                title_parts.append(f"({obs_kw.label})")
+                title_parts.append(obs_kw.label)
 
         pop_kw = study_plan.keywords.populations.get(population)
         if pop_kw and pop_kw.label:
-            title_parts.append(f"({pop_kw.label})")
+            title_parts.append(pop_kw.label)
 
         # Build output filename
         filename = f"{analysis}_{population}"
