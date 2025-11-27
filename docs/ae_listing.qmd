@@ -1,0 +1,235 @@
+---
+title: "AE Listing"
+---
+
+::: {.callout-note}
+## Objectives
+
+This guide demonstrates AE listing showing detailed individual adverse event records with key information like severity, relationship, and outcomes. For design philosophy and architecture details, see [ae_summary.qmd](ae_summary.qmd).
+:::
+
+## Setup
+
+```{python}
+#| message: false
+import sys
+from pathlib import Path
+import polars as pl
+
+sys.path.insert(0, 'src')
+
+from rtflite import LibreOfficeConverter
+converter = LibreOfficeConverter()
+```
+
+```{python}
+from tlfyaml import load_plan, study_plan_to_ae_listing
+from tlfyaml.ae_listing import ae_listing_ard, ae_listing_rtf, ae_listing
+```
+
+## What's Different?
+
+**AE Summary** shows high-level aggregated counts (e.g., "12 (14.3%)" subjects with any AE). Uses a three-step pipeline with data pivoting.
+
+**AE Specific** shows aggregated counts by individual event terms (e.g., "5 (6.0%)" subjects with "Diarrhea"). Uses a three-step pipeline with data pivoting.
+
+**AE Listing** shows detailed individual event records with information like subject ID, study day, severity, relationship, action taken, and outcome. Uses a simpler two-step pipeline (no pivoting needed). Can access both population (demographics like SEX, RACE, AGE) and observation (event details) columns, with optional grouping by subject or treatment for section headers.
+
+## StudyPlan-Driven Workflow
+
+```{python}
+study_plan = load_plan("examples/yaml/plan_xyz123.yaml")
+study_plan.get_plan_df().filter(pl.col("analysis") == "ae_listing")
+```
+
+```{python}
+output_files = study_plan_to_ae_listing(study_plan)
+```
+
+```{python}
+#| echo: false
+for file in output_files:
+    converter.convert(file, output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+### week12_any
+
+<embed src="pdf/ae_listing_apat_week12_any.pdf" style="width:100%; height:600px" type="application/pdf">
+
+### week12_ser
+
+<embed src="pdf/ae_listing_apat_week12_ser.pdf" style="width:100%; height:600px" type="application/pdf">
+
+### week24_any
+
+<embed src="pdf/ae_listing_apat_week24_any.pdf" style="width:100%; height:600px" type="application/pdf">
+
+### week24_ser
+
+<embed src="pdf/ae_listing_apat_week24_ser.pdf" style="width:100%; height:600px" type="application/pdf">
+
+## Complete Pipeline
+
+```{python}
+adsl = pl.read_parquet("data/adsl.parquet")
+adae = pl.read_parquet("data/adae.parquet")
+
+ae_listing(
+    population=adsl,
+    observation=adae,
+    population_filter="SAFFL = 'Y'",
+    observation_filter="TRTEMFL = 'Y'",
+    parameter_filter=None,
+    id=("USUBJID", "Subject ID"),
+    title=[
+        "Listing of Participants With Adverse Events",
+        "(Treatment-Emergent, Safety Population)"
+    ],
+    footnote=["Adverse events are sorted by subject ID and study day."],
+    source=["Source: ADSL and ADAE datasets"],
+    output_file="examples/rtf/ae_listing.rtf",
+    population_columns=["SEX", "RACE", "AGE", "TRT01A"],
+    observation_columns=["ASTDY", "AEDECOD", "ADURN", "AESEV", "AESER", "AEREL", "AEACN", "AEOUT"],
+    sort_columns=["TRT01A", "USUBJID", "ASTDY"],
+    group_by=["TRT01A", "USUBJID"],
+)
+```
+
+```{python}
+#| echo: false
+converter.convert("examples/rtf/ae_listing.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+<embed src="pdf/ae_listing.pdf" style="width:100%; height:600px" type="application/pdf">
+
+## Step-by-Step Pipeline
+
+### Step 1: Generate ARD
+
+**Key Parameters:**
+- `population_columns`: List of column names from population (ADSL) to include (e.g., ["SEX", "RACE", "AGE"]). These are joined to observation data. If None (default), no population columns are added.
+- `observation_columns`: List of column names from observation (ADAE) to include (e.g., ["AEDECOD", "AESEV"]). If None (default), only the id column is included.
+- `sort_columns`: List of column names to sort by. If None (default), sorts by id column.
+- `parameter_filter`: Optional SQL WHERE clause for filtering AEs (e.g., "AESER = 'Y'" for serious AEs)
+
+**Example with default (ID only):**
+
+```{python}
+_ard_minimal = ae_listing_ard(
+    population=adsl,
+    observation=adae,
+    population_filter="SAFFL = 'Y'",
+    observation_filter="TRTEMFL = 'Y'",
+    parameter_filter=None,
+    id=("USUBJID", "Subject ID"),
+    population_columns=["SEX", "RACE", "AGE", "TRT01A"],
+    observation_columns=["ASTDY", "AEDECOD", "ADURN", "AESEV", "AESER", "AEREL", "AEACN", "AEOUT"],
+)
+
+_ard_minimal.head(5)
+```
+
+**Example with explicit columns:**
+
+```{python}
+_ard = ae_listing_ard(
+    population=adsl,
+    observation=adae,
+    population_filter="SAFFL = 'Y'",
+    observation_filter="TRTEMFL = 'Y'",
+    parameter_filter=None,
+    id=("USUBJID", "Subject ID"),
+    population_columns=["SEX", "RACE", "AGE", "TRT01A"],  # Demographics from ADSL
+    observation_columns=["ASTDY", "AEDECOD", "ADURN", "AESEV", "AESER", "AEREL", "AEACN", "AEOUT"],  # Event details from ADAE
+    sort_columns=["TRT01A", "USUBJID", "ASTDY"],  # Sort by treatment, subject, and study day
+)
+
+_ard.head(10)
+```
+
+**Output Structure:** Filtered observation records joined with population data, containing selected columns from both datasets, sorted as specified.
+
+### Step 2: Generate RTF Output
+
+The ARD from step 1 is already display-ready (filtered and sorted), so we can generate RTF directly.
+
+**Key Parameters:**
+- `group_by`: Optional list of column names to group by for section headers. Common patterns include grouping by treatment and subject ID to create demographic sections.
+
+**Example without grouping:**
+
+```{python}
+ae_listing_rtf(
+    _ard,
+    title=[
+        "Adverse Event Listing",
+        "(Treatment-Emergent, Safety Population)"
+    ],
+    footnote=["Adverse events are sorted by treatment, subject ID, and study day."],
+    source=["Source: ADSL and ADAE datasets"],
+    group_by=None,  # No section headers
+).write_rtf("examples/rtf/ae_listing_step.rtf")
+```
+
+```{python}
+#| echo: false
+converter.convert("examples/rtf/ae_listing_step.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+<embed src="pdf/ae_listing_step.pdf" style="width:100%; height:600px" type="application/pdf">
+
+
+**Example with grouping:**
+
+```{python}
+ae_listing_rtf(
+    _ard,
+    title=[
+        "Adverse Event Listing",
+        "(Treatment-Emergent, Safety Population)"
+    ],
+    footnote=["Adverse events are sorted by treatment, subject ID, and study day."],
+    source=["Source: ADSL and ADAE datasets"],
+    group_by=["TRT01A", "USUBJID"],  # Section headers for each treatment/subject combination
+).write_rtf("examples/rtf/ae_listing_step_grouped.rtf")
+```
+
+```{python}
+#| echo: false
+converter.convert("examples/rtf/ae_listing_step_grouped.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+<embed src="pdf/ae_listing_step_grouped.pdf" style="width:100%; height:600px" type="application/pdf">
+
+## Customizing Columns and Grouping
+
+You can customize which columns to display from both population and observation datasets:
+
+```{python}
+ae_listing(
+    population=adsl,
+    observation=adae,
+    population_filter="SAFFL = 'Y'",
+    observation_filter="TRTEMFL = 'Y'",
+    parameter_filter="AESER = 'Y'",  # Only serious events
+    id=("USUBJID", "Subject ID"),
+    title=[
+        "Serious Adverse Event Listing",
+        "(Treatment-Emergent, Safety Population)"
+    ],
+    footnote=["Listing includes only serious adverse events."],
+    source=["Source: ADSL and ADAE datasets"],
+    output_file="examples/rtf/ae_listing_custom.rtf",
+    population_columns=["SEX", "AGE"],  # Minimal demographics
+    observation_columns=["AEDECOD", "AESEV", "AESER", "AEREL", "AEOUT"],  # Key event details
+    sort_columns=["USUBJID"],  # Sort by subject ID only
+    group_by=["USUBJID"],  # Group by subject for section headers
+)
+```
+
+```{python}
+#| echo: false
+converter.convert("examples/rtf/ae_listing_custom.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+<embed src="pdf/ae_listing_custom.pdf" style="width:100%; height:600px" type="application/pdf">

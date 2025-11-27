@@ -1,0 +1,424 @@
+"""
+Adverse Event (AE) Listing Functions
+
+This module provides functions for generating detailed AE listings showing individual
+adverse event records with key details like severity, relationship, and outcomes.
+
+The two-step pipeline:
+- ae_listing_ard: Filter, select, sort, and rename columns (returns display-ready data)
+- ae_listing_rtf: Generate formatted RTF output
+- ae_listing: Complete pipeline wrapper
+- study_plan_to_ae_listing: Batch generation from StudyPlan
+
+Uses Polars native SQL capabilities for data manipulation and parse.py utilities
+for StudyPlan parsing.
+"""
+
+from pathlib import Path
+
+import polars as pl
+
+from rtflite import RTFBody, RTFColumnHeader, RTFDocument, RTFFootnote, RTFSource, RTFTitle
+from .plan import StudyPlan
+from .parse import StudyPlanParser
+
+
+def _get_parameter_title(param) -> str:
+    """
+    Extract title from parameter for ae_listing title generation.
+
+    Supports parameter.terms patterns:
+    1. Both before and after: {"before": "serious", "after": "resulting in death"}
+       -> "Serious Adverse Events Resulting In Death"
+    2. Only before: {"before": "serious"}
+       -> "Serious Adverse Events"
+    3. Only after: {"after": "resulting in death"}
+       -> "Adverse Events Resulting In Death"
+
+    Args:
+        param: Parameter object with terms attribute
+
+    Returns:
+        Title string for the analysis (defaults to "Adverse Events")
+    """
+    default_title = "Listing of Participants With Adverse Events"
+    if not param:
+        return default_title
+
+    # Check for terms attribute
+    if hasattr(param, 'terms') and param.terms and isinstance(param.terms, dict):
+        terms = param.terms
+
+        # Preprocess to empty strings (avoiding None)
+        before = terms.get('before', '').title()
+        after = terms.get('after', '').title()
+
+        # Build title and clean up extra spaces
+        title = f"Listing of Participants With {before} Adverse Events {after}"
+        return " ".join(title.split())  # Remove extra spaces
+
+    # Fallback to default
+    return default_title
+
+
+def ae_listing_ard(
+    population: pl.DataFrame,
+    observation: pl.DataFrame,
+    population_filter: str | None,
+    observation_filter: str | None,
+    parameter_filter: str | None,
+    id: tuple[str, str],
+    population_columns: list[str] | None = None,
+    observation_columns: list[str] | None = None,
+    sort_columns: list[str] | None = None,
+) -> pl.DataFrame:
+    """
+    Generate Analysis Results Data (ARD) for AE listing.
+
+    Filters and joins population and observation data, then selects relevant columns.
+
+    Args:
+        population: Population DataFrame (subject-level data, e.g., ADSL)
+        observation: Observation DataFrame (event data, e.g., ADAE)
+        population_filter: SQL WHERE clause for population (can be None)
+        observation_filter: SQL WHERE clause for observation (can be None)
+        parameter_filter: SQL WHERE clause for parameter filtering (can be None)
+        id: Tuple (variable_name, label) for ID column
+        population_columns: List of column names from population to include (e.g., ["SEX", "RACE", "AGE"])
+        observation_columns: List of column names from observation to include (e.g., ["AEDECOD", "AESEV"])
+        sort_columns: List of column names to sort by. If None, sorts by id column.
+
+    Returns:
+        pl.DataFrame: Filtered and joined records with selected columns
+    """
+    id_var_name, id_var_label = id
+
+    # Apply population filter
+    if population_filter:
+        population_filtered = population.filter(pl.sql_expr(population_filter))
+    else:
+        population_filtered = population
+
+    # Apply observation filter
+    observation_to_filter = observation
+    if observation_filter:
+        observation_to_filter = observation_to_filter.filter(pl.sql_expr(observation_filter))
+
+    # Apply parameter filter
+    if parameter_filter:
+        observation_to_filter = observation_to_filter.filter(pl.sql_expr(parameter_filter))
+
+    # Filter observation to include only subjects in filtered population
+    observation_filtered = observation_to_filter.filter(
+        pl.col(id_var_name).is_in(population_filtered[id_var_name].to_list())
+    )
+
+    # Determine which observation columns to select
+    if observation_columns is None:
+        # Default: select id column only
+        obs_cols = [id_var_name]
+    else:
+        # Ensure id is included
+        obs_cols = [id_var_name] + [col for col in observation_columns if col != id_var_name]
+
+    # Select available observation columns
+    obs_cols_available = [col for col in obs_cols if col in observation_filtered.columns]
+    result = observation_filtered.select(obs_cols_available)
+
+    # Join with population to add population columns
+    if population_columns is not None:
+        # Select id + requested population columns
+        pop_cols = [id_var_name] + [col for col in population_columns if col != id_var_name]
+        pop_cols_available = [col for col in pop_cols if col in population_filtered.columns]
+        population_subset = population_filtered.select(pop_cols_available)
+
+        # Left join to preserve all observation records
+        result = result.join(population_subset, on=id_var_name, how="left")
+
+    # Sort by specified columns or default to id column
+    if sort_columns is None:
+        # Default: sort by id column if it exists in result
+        if id_var_name in result.columns:
+            result = result.sort(id_var_name)
+    else:
+        # Sort by specified columns that exist in result
+        cols_to_sort = [col for col in sort_columns if col in result.columns]
+        if cols_to_sort:
+            result = result.sort(cols_to_sort)
+
+    return result
+
+
+def ae_listing_rtf(
+    df: pl.DataFrame,
+    title: list[str],
+    footnote: list[str] | None,
+    source: list[str] | None,
+    col_rel_width: list[float] | None = None,
+    group_by: list[str] | None = None,
+) -> RTFDocument:
+    """
+    Generate RTF table from AE listing display DataFrame.
+
+    Creates a formatted RTF table with column headers and optional section grouping.
+
+    Args:
+        df: Display DataFrame from ae_listing_ard
+        title: Title(s) for the table as list of strings
+        footnote: Optional footnote(s) as list of strings
+        source: Optional source note(s) as list of strings
+        col_rel_width: Optional list of relative column widths. If None, auto-calculated
+                       as equal widths for all columns
+        group_by: Optional list of column names to group by for section headers
+
+    Returns:
+        RTFDocument: RTF document object that can be written to file
+    """
+    # Calculate number of columns
+    n_cols = len(df.columns)
+
+    # Build column headers
+    col_header = df.columns
+
+    # Calculate column widths
+    if col_rel_width is None:
+        col_widths = [1] * n_cols
+    else:
+        col_widths = col_rel_width
+
+    # Normalize title, footnote, source to lists
+    title_list = [title] if isinstance(title, str) else title
+    footnote_list = [footnote] if isinstance(footnote, str) else (footnote or [])
+    source_list = [source] if isinstance(source, str) else (source or [])
+
+    # Build RTF document
+    rtf_components = {
+        "df": df,
+        "rtf_title": RTFTitle(text=title_list),
+        "rtf_column_header": [
+            RTFColumnHeader(
+                text=col_header,
+                col_rel_width=col_widths,
+                text_justification=["l"] * n_cols,
+            ),
+        ],
+        "rtf_body": RTFBody(
+            col_rel_width=col_widths,
+            text_justification=["l"] * n_cols,
+            border_left=["single"] * n_cols,
+            group_by=group_by,  # Add group_by for section headers
+        ),
+    }
+
+    # Add optional footnote
+    if footnote_list:
+        rtf_components["rtf_footnote"] = RTFFootnote(text=footnote_list)
+
+    # Add optional source
+    if source_list:
+        rtf_components["rtf_source"] = RTFSource(text=source_list)
+
+    # Create RTF document
+    doc = RTFDocument(**rtf_components)
+
+    return doc
+
+
+def ae_listing(
+    population: pl.DataFrame,
+    observation: pl.DataFrame,
+    population_filter: str | None,
+    observation_filter: str | None,
+    parameter_filter: str | None,
+    id: tuple[str, str],
+    title: list[str],
+    footnote: list[str] | None,
+    source: list[str] | None,
+    output_file: str,
+    population_columns: list[str] | None = None,
+    observation_columns: list[str] | None = None,
+    sort_columns: list[str] | None = None,
+    group_by: list[str] | None = None,
+    col_rel_width: list[float] | None = None,
+) -> str:
+    """
+    Complete AE listing pipeline wrapper.
+
+    This function orchestrates the two-step pipeline:
+    1. ae_listing_ard: Filter, join, select, and sort columns
+    2. ae_listing_rtf: Generate RTF output with optional grouping
+
+    Args:
+        population: Population DataFrame (subject-level data, e.g., ADSL)
+        observation: Observation DataFrame (event data, e.g., ADAE)
+        population_filter: SQL WHERE clause for population (can be None)
+        observation_filter: SQL WHERE clause for observation (can be None)
+        parameter_filter: SQL WHERE clause for parameter filtering (can be None)
+        id: Tuple (variable_name, label) for ID column
+        title: Title for RTF output as list of strings
+        footnote: Optional footnote for RTF output as list of strings
+        source: Optional source for RTF output as list of strings
+        output_file: File path to write RTF output
+        population_columns: Optional list of column names from population to include
+        observation_columns: Optional list of column names from observation to include
+        sort_columns: Optional list of column names to sort by. If None, sorts by id column.
+        group_by: Optional list of column names to group by for section headers
+        col_rel_width: Optional column widths for RTF output
+
+    Returns:
+        str: Path to the generated RTF file
+    """
+    # Step 1: Generate ARD (includes filtering, joining, and selecting)
+    df = ae_listing_ard(
+        population=population,
+        observation=observation,
+        population_filter=population_filter,
+        observation_filter=observation_filter,
+        parameter_filter=parameter_filter,
+        id=id,
+        population_columns=population_columns,
+        observation_columns=observation_columns,
+        sort_columns=sort_columns,
+    )
+
+    # Step 2: Generate RTF and write to file
+    rtf_doc = ae_listing_rtf(
+        df=df,
+        title=title,
+        footnote=footnote,
+        source=source,
+        col_rel_width=col_rel_width,
+        group_by=group_by,
+    )
+    rtf_doc.write_rtf(output_file)
+
+    return output_file
+
+
+def study_plan_to_ae_listing(
+    study_plan: StudyPlan,
+) -> list[str]:
+    """
+    Generate AE listing RTF outputs for all analyses defined in StudyPlan.
+
+    This function reads the expanded plan from StudyPlan and generates
+    an RTF listing for each ae_listing analysis specification automatically.
+
+    Args:
+        study_plan: StudyPlan object with loaded datasets and analysis specifications
+
+    Returns:
+        list[str]: List of paths to generated RTF files
+    """
+
+    # Meta data
+    analysis = "ae_listing"
+    output_dir = "examples/rtf"
+    footnote = None
+    source = None
+
+    id = ("USUBJID", "Subject ID")
+    id_var_name = id[0]  # Extract variable name for use in column lists
+
+    # Column configuration - easy to customize
+    population_columns_base = ["SEX", "RACE", "AGE"]  # Demographics to include (group variable added dynamically)
+    observation_columns = ["ASTDY", "AEDECOD", "ADURN", "AESEV", "AESER", "AEREL", "AEACN", "AEOUT"]
+
+    # Sorting and grouping configuration
+    # Pattern: [group_variable, id_variable] + additional sort variables
+    sort_suffix = ["ASTDY"]  # Additional variables to sort by after group and subject ID
+    # Pattern: [group_variable, id_variable]
+    group_by_pattern = [id_var_name]  # Variables to group by after group variable
+
+    # Create output directory if it doesn't exist
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    # Initialize parser
+    parser = StudyPlanParser(study_plan)
+
+    # Get expanded plan DataFrame
+    plan_df = study_plan.get_plan_df()
+
+    # Filter for AE listing analyses
+    ae_plans = plan_df.filter(pl.col("analysis") == analysis)
+
+    rtf_files = []
+
+    # Generate RTF for each analysis
+    for row in ae_plans.iter_rows(named=True):
+        population = row["population"]
+        observation = row.get("observation")
+        parameter = row.get("parameter")
+        group = row.get("group")
+
+        # Validate group is specified
+        if group is None:
+            raise ValueError(f"Group not specified in YAML for analysis: population={population}, observation={observation}, parameter={parameter}. Please add group to your YAML plan.")
+
+        # Get datasets using parser
+        population_df, observation_df = parser.get_datasets("adsl", "adae")
+
+        # Get filters using parser
+        population_filter = parser.get_population_filter(population)
+        obs_filter = parser.get_observation_filter(observation)
+
+        # Get group variable name from YAML
+        group_var_name, group_labels = parser.get_group_info(group)
+
+        # Build columns dynamically from base configuration
+        population_columns = population_columns_base + [group_var_name]
+        sort_columns = [group_var_name, id_var_name] + sort_suffix
+        group_by = [group_var_name] + group_by_pattern
+
+        # Get parameter filter if parameter is specified
+        parameter_filter = None
+        if parameter:
+            param_names, param_filters, param_labels = parser.get_parameter_info(parameter)
+            # For ae_listing, use the first (and typically only) filter
+            parameter_filter = param_filters[0] if param_filters else None
+
+        # Build dynamic title based on parameter
+        param = study_plan.keywords.get_parameter(parameter) if parameter else None
+        dynamic_title = _get_parameter_title(param)
+
+        # Build title with population and observation context
+        title_parts = [dynamic_title]
+        if observation:
+            obs_kw = study_plan.keywords.observations.get(observation)
+            if obs_kw and obs_kw.label:
+                title_parts.append(obs_kw.label)
+
+        pop_kw = study_plan.keywords.populations.get(population)
+        if pop_kw and pop_kw.label:
+            title_parts.append(pop_kw.label)
+
+        # Build output filename
+        filename = f"{analysis}_{population}"
+        if observation:
+            filename += f"_{observation}"
+        if parameter:
+            filename += f"_{parameter.replace(';', '_')}"
+        filename += ".rtf"
+        output_file = str(Path(output_dir) / filename)
+
+        # Generate RTF
+        rtf_path = ae_listing(
+            population=population_df,
+            observation=observation_df,
+            population_filter=population_filter,
+            observation_filter=obs_filter,
+            parameter_filter=parameter_filter,
+            id=id,
+            title=title_parts,
+            footnote=footnote,
+            source=source,
+            output_file=output_file,
+            population_columns=population_columns,
+            observation_columns=observation_columns,
+            sort_columns=sort_columns,
+            group_by=group_by,
+        )
+
+        rtf_files.append(rtf_path)
+
+    return rtf_files
