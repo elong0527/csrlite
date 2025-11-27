@@ -241,36 +241,37 @@ def ae_listing_rtf(
     title_list = [title] if isinstance(title, str) else title
     footnote_list = [footnote] if isinstance(footnote, str) else (footnote or [])
     source_list = [source] if isinstance(source, str) else (source or [])
+    print(page_by)
     # Build RTF document
     rtf_components = {
         "df": df,
         #"rtf_page": RTFPage(orientation=orientation),
-        "rtf_title": RTFTitle(text=title_list),
-        "rtf_column_header": [
-            RTFColumnHeader(
-                text=col_header[1:],
-                col_rel_width=col_widths[1:],
-                text_justification=["l"] +  ["c"] * (n_cols - 1),
-            ),
-        ],
+        # "rtf_title": RTFTitle(text=title_list),
+        # "rtf_column_header": [
+        #     RTFColumnHeader(
+        #         text=col_header[1:],
+        #         col_rel_width=col_widths[1:],
+        #         text_justification=["l"] +  ["c"] * (n_cols - 1),
+        #     ),
+        # ],
         "rtf_body": RTFBody(
-            col_rel_width=col_widths,
-            text_justification=["l"] * n_cols,
-            border_left=["single"],
-            border_top=["single"] + [""] * (n_cols - 1),
-            border_bottom=["single"] + [""] * (n_cols - 1),
-            group_by=group_by,
+            # col_rel_width=col_widths,
+            # text_justification=["l"] * n_cols,
+            # border_left=["single"],
+            # border_top=["single"] + [""] * (n_cols - 1),
+            # border_bottom=["single"] + [""] * (n_cols - 1),
+            # group_by=group_by,
             page_by=page_by,
         ),
     }
 
-    # Add optional footnote
-    if footnote_list:
-        rtf_components["rtf_footnote"] = RTFFootnote(text=footnote_list)
+    # # Add optional footnote
+    # if footnote_list:
+    #     rtf_components["rtf_footnote"] = RTFFootnote(text=footnote_list)
 
-    # Add optional source
-    if source_list:
-        rtf_components["rtf_source"] = RTFSource(text=source_list)
+    # # Add optional source
+    # if source_list:
+    #     rtf_components["rtf_source"] = RTFSource(text=source_list)
 
     # Create RTF document
     doc = RTFDocument(**rtf_components)
@@ -366,7 +367,7 @@ def ae_listing(
         source=source,
         col_rel_width=col_rel_width,
         group_by=group_by,
-        page_by=["__index__"] if page_by else None,
+        page_by=["__index__"],
         orientation=orientation,
     )
     rtf_doc.write_rtf(output_file)
