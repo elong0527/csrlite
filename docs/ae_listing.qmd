@@ -24,7 +24,7 @@ converter = LibreOfficeConverter()
 
 ```{python}
 from tlfyaml import load_plan, study_plan_to_ae_listing
-from tlfyaml.ae_listing import ae_listing_ard, ae_listing_rtf, ae_listing
+from tlfyaml.ae.ae_listing import ae_listing_ard, ae_listing_rtf, ae_listing
 ```
 
 ## What's Different?

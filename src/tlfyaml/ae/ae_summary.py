@@ -17,9 +17,11 @@ from pathlib import Path
 import polars as pl
 
 from rtflite import RTFBody, RTFColumnHeader, RTFDocument, RTFFootnote, RTFSource, RTFTitle
-from .plan import StudyPlan
-from .count import count_subject, count_subject_with_observation
-from .parse import StudyPlanParser
+from ..plan import StudyPlan
+from ..count import count_subject, count_subject_with_observation
+from ..parse import StudyPlanParser
+from ..utils import apply_common_filters
+from .ae_utils import create_ae_rtf_table
 
 
 def study_plan_to_ae_summary(
@@ -240,16 +242,13 @@ def ae_summary_ard(
     id_var_name, id_var_label = id
     group_var_name, group_var_label = group
 
-    # Apply population filter using pl.sql_expr()
-    if population_filter:
-        population_filtered = population.filter(pl.sql_expr(population_filter))
-    else:
-        population_filtered = population
-
-    # Apply observation filter once if provided
-    observation_to_filter = observation
-    if observation_filter:
-        observation_to_filter = observation_to_filter.filter(pl.sql_expr(observation_filter))
+    # Apply common filters (parameter_filter is handled inside the loop, so None here)
+    population_filtered, observation_to_filter = apply_common_filters(
+        population=population,
+        observation=observation,
+        population_filter=population_filter,
+        observation_filter=observation_filter
+    )
 
     # Filter observation data to include only subjects in the filtered population
     # Process all variables in the list
@@ -375,7 +374,7 @@ def ae_summary_rtf(
     n_cols = len(df_rtf.columns)
 
     # Build first-level column headers (use actual column names)
-    col_header_1 = df_rtf.columns
+    col_header_1 = list(df_rtf.columns)
 
     # Build second-level column headers (empty for first, "n (%)" for groups)
     col_header_2 = [""] + ["n (%)"] * (n_cols - 1)
@@ -386,46 +385,12 @@ def ae_summary_rtf(
     else:
         col_widths = col_rel_width
 
-    # Normalize title, footnote, source to lists
-    title_list = [title] if isinstance(title, str) else title
-    footnote_list = [footnote] if isinstance(footnote, str) else (footnote or [])
-    source_list = [source] if isinstance(source, str) else (source or [])
-
-    # Build RTF document
-    rtf_components = {
-        "df": df_rtf,
-        "rtf_title": RTFTitle(text=title_list),
-        "rtf_column_header": [
-            RTFColumnHeader(
-                text=col_header_1,
-                col_rel_width=col_widths,
-                text_justification=["l"] + ["c"] * (n_cols - 1),
-            ),
-            RTFColumnHeader(
-                text=col_header_2,
-                col_rel_width=col_widths,
-                text_justification=["l"] + ["c"] * (n_cols - 1),
-                border_left=["single"],
-                border_top=[""],
-            ),
-        ],
-        "rtf_body": RTFBody(
-            col_rel_width=col_widths,
-            text_justification=["l"] + ["c"] * (n_cols - 1),
-            border_left=["single"] * n_cols,
-        ),
-    }
-
-    # Add optional footnote
-    if footnote_list:
-        rtf_components["rtf_footnote"] = RTFFootnote(text=footnote_list)
-
-    # Add optional source
-    if source_list:
-        rtf_components["rtf_source"] = RTFSource(text=source_list)
-
-    # Create RTF document
-    doc = RTFDocument(**rtf_components)
-
-    # Return RTF string
-    return doc
+    return create_ae_rtf_table(
+        df=df_rtf,
+        col_header_1=col_header_1,
+        col_header_2=col_header_2,
+        col_widths=col_widths,
+        title=title,
+        footnote=footnote,
+        source=source,
+    )

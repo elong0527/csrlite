@@ -20,81 +20,11 @@ from pathlib import Path
 import polars as pl
 
 from rtflite import RTFBody, RTFColumnHeader, RTFDocument, RTFFootnote, RTFSource, RTFTitle
-from .plan import StudyPlan
-from .count import count_subject, count_subject_with_observation
-from .parse import StudyPlanParser
-
-
-def _get_parameter_row_labels(param) -> tuple[str, str]:
-    """
-    Generate n_with and n_without row labels based on parameter terms.
-
-    Returns:
-        Tuple of (n_with_label, n_without_label)
-
-    Examples:
-        No terms -> ("    with one or more adverse events", "    with no adverse events")
-        before: "serious" -> ("    with one or more serious adverse events", "    with no serious adverse events")
-        after: "resulting in death" -> ("    with one or more adverse events resulting in death", "    with no adverse events resulting in death")
-    """
-    # Default labels
-    default_with = "    with one or more adverse events"
-    default_without = "    with no adverse events"
-
-    if not param or not hasattr(param, 'terms') or not param.terms:
-        return (default_with, default_without)
-
-    terms = param.terms
-    before = terms.get('before', '').lower()
-    after = terms.get('after', '').lower()
-
-    # Build dynamic labels with leading indentation
-    with_label = f"with one or more {before} adverse events {after}"
-    without_label = f"with no {before} adverse events {after}"
-
-    # Clean up extra spaces and add back the 4-space indentation
-    with_label = "    " + " ".join(with_label.split())
-    without_label = "    " + " ".join(without_label.split())
-
-    return (with_label, without_label)
-
-
-def _get_parameter_title(param) -> str:
-    """
-    Extract title from parameter for ae_specific title generation.
-
-    Supports parameter.terms patterns:
-    1. Both before and after: {"before": "serious", "after": "resulting in death"}
-       -> "Participants With Serious Adverse Events Resulting In Death"
-    2. Only before: {"before": "serious"}
-       -> "Participants With Serious Adverse Events"
-    3. Only after: {"after": "resulting in death"}
-       -> "Participants With Adverse Events Resulting In Death"
-
-    Args:
-        param: Parameter object with terms attribute
-
-    Returns:
-        Title string for the analysis (defaults to "Participants With Adverse Events")
-    """
-    default_title = "Participants With Adverse Events"
-    if not param:
-        return default_title
-
-    # Check for terms attribute
-    if hasattr(param, 'terms') and param.terms and isinstance(param.terms, dict):
-        terms = param.terms
-
-        # Preprocess to empty strings (avoiding None)
-        before = terms.get('before', '').title()
-        after = terms.get('after', '').title()
-
-        # Build title and clean up extra spaces
-        title = f"Participants With {before} Adverse Events {after}"
-        return " ".join(title.split())  # Remove extra spaces
-
-    # Fallback to default
-    return default_title
+from ..plan import StudyPlan
+from ..count import count_subject, count_subject_with_observation
+from ..parse import StudyPlanParser
+from ..utils import apply_common_filters
+from .ae_utils import get_ae_parameter_title, get_ae_parameter_row_labels, create_ae_rtf_table
 
 
 def ae_specific_ard(
@@ -140,20 +70,14 @@ def ae_specific_ard(
     group_var_name, group_var_label = group
     ae_term_var_name, ae_term_var_label = ae_term
 
-    # Apply population filter
-    if population_filter:
-        population_filtered = population.filter(pl.sql_expr(population_filter))
-    else:
-        population_filtered = population
-
-    # Apply observation filter
-    observation_to_filter = observation
-    if observation_filter:
-        observation_to_filter = observation_to_filter.filter(pl.sql_expr(observation_filter))
-
-    # Apply parameter filter
-    if parameter_filter:
-        observation_to_filter = observation_to_filter.filter(pl.sql_expr(parameter_filter))
+    # Apply common filters
+    population_filtered, observation_to_filter = apply_common_filters(
+        population=population,
+        observation=observation,
+        population_filter=population_filter,
+        observation_filter=observation_filter,
+        parameter_filter=parameter_filter
+    )
 
     # Filter observation to include only subjects in filtered population
     observation_filtered = observation_to_filter.filter(
@@ -331,7 +255,7 @@ def ae_specific_rtf(
     n_cols = len(df_rtf.columns)
 
     # Build first-level column headers
-    col_header_1 = df_rtf.columns
+    col_header_1 = list(df_rtf.columns)
 
     # Build second-level column headers
     col_header_2 = [""] + ["n (%)"] * (n_cols - 1)
@@ -342,48 +266,15 @@ def ae_specific_rtf(
     else:
         col_widths = col_rel_width
 
-    # Normalize title, footnote, source to lists
-    title_list = [title] if isinstance(title, str) else title
-    footnote_list = [footnote] if isinstance(footnote, str) else (footnote or [])
-    source_list = [source] if isinstance(source, str) else (source or [])
-
-    # Build RTF document
-    rtf_components = {
-        "df": df_rtf,
-        "rtf_title": RTFTitle(text=title_list),
-        "rtf_column_header": [
-            RTFColumnHeader(
-                text=col_header_1,
-                col_rel_width=col_widths,
-                text_justification=["l"] + ["c"] * (n_cols - 1),
-            ),
-            RTFColumnHeader(
-                text=col_header_2,
-                col_rel_width=col_widths,
-                text_justification=["l"] + ["c"] * (n_cols - 1),
-                border_left=["single"],
-                border_top=[""],
-            ),
-        ],
-        "rtf_body": RTFBody(
-            col_rel_width=col_widths,
-            text_justification=["l"] + ["c"] * (n_cols - 1),
-            border_left=["single"] * n_cols,
-        ),
-    }
-
-    # Add optional footnote
-    if footnote_list:
-        rtf_components["rtf_footnote"] = RTFFootnote(text=footnote_list)
-
-    # Add optional source
-    if source_list:
-        rtf_components["rtf_source"] = RTFSource(text=source_list)
-
-    # Create RTF document
-    doc = RTFDocument(**rtf_components)
-
-    return doc
+    return create_ae_rtf_table(
+        df=df_rtf,
+        col_header_1=col_header_1,
+        col_header_2=col_header_2,
+        col_widths=col_widths,
+        title=title,
+        footnote=footnote,
+        source=source,
+    )
 
 
 def ae_specific(
@@ -551,8 +442,8 @@ def study_plan_to_ae_specific(
 
         # Build dynamic title and row labels based on parameter
         param = study_plan.keywords.get_parameter(parameter) if parameter else None
-        dynamic_title = _get_parameter_title(param)
-        n_with_label, n_without_label = _get_parameter_row_labels(param)
+        dynamic_title = get_ae_parameter_title(param)
+        n_with_label, n_without_label = get_ae_parameter_row_labels(param)
 
         # Build title with population and observation context
         title_parts = [dynamic_title]
