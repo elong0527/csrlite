@@ -52,7 +52,7 @@ format:
       gutter-width: 1.5rem
 
 execute:
-  freeze: auto
+  freeze: false
   cache: true
 
 jupyter: python3
