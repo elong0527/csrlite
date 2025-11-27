@@ -15,6 +15,12 @@ from .ae_specific import (
     study_plan_to_ae_specific,
 )
 
+from .ae_listing import (
+    # AE listing functions
+    ae_listing,
+    study_plan_to_ae_listing,
+)
+
 from .count import (
     count_subject,
     count_subject_with_observation,
@@ -32,9 +38,11 @@ __all__ = [
     # AE analysis (direct pipeline wrappers)
     "ae_summary",
     "ae_specific",
+    "ae_listing",
     # AE analysis (StudyPlan integration)
     "study_plan_to_ae_summary",
     "study_plan_to_ae_specific",
+    "study_plan_to_ae_listing",
     # Count functions
     "count_subject",
     "count_subject_with_observation",

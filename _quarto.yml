@@ -26,9 +26,10 @@ book:
       - docs/inheritance.qmd
       - docs/plan.qmd
     - part: "Adverse Events"
-      chapters: 
+      chapters:
         - docs/ae_summary.qmd
         - docs/ae_specific.qmd
+        - docs/ae_listing.qmd
     - part: "Appendix"
       chapters:
         - docs/count.qmd

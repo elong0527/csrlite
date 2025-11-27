@@ -31,15 +31,14 @@ plans:
   # AE Listings
   - analysis: "ae_listing"
     population: "apat"
-    observation: "week12"
-    group: "trt01a"
-    parameter: ["any", "rel", "ser"]  
+    observation: ["week12", "week24"]
+    parameter: ["any", "ser"]  
 
 
 population:
   - name: apat
     filter: "adsl:saffl == 'Y'"
-    
+
   - name: itt
     filter: "adsl:ittfl == 'Y'"
 
