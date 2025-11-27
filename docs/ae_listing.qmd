@@ -81,20 +81,11 @@ ae_listing(
     source=["Source: ADSL and ADAE datasets"],
     output_file="examples/rtf/ae_listing.rtf",
     population_columns=[
-        ("SEX", "Sex"),
-        ("RACE", "Race"),
-        ("AGE", "Age"),
         ("TRT01A", "Treatment")
     ],
     observation_columns=[
-        ("ASTDY", "Study Day"),
         ("AEDECOD", "Adverse Event"),
-        ("ADURN", "Duration (days)"),
-        ("AESEV", "Severity"),
-        ("AESER", "Serious"),
-        ("AEREL", "Related"),
-        ("AEACN", "Action Taken"),
-        ("AEOUT", "Outcome")
+        ("ASTDY", "Study Day"),   
     ],
     sort_columns=["TRT01A", "USUBJID", "ASTDY"],
     group_by=["USUBJID"],
@@ -182,7 +173,7 @@ id_col = ("USUBJID", "Subject ID")
 column_labels = dict([id_col] + population_columns + observation_columns)
 
 ae_listing_rtf(
-    _ard,
+    _ard.head(10),
     column_labels=column_labels,
     title=[
         "Adverse Event Listing",
