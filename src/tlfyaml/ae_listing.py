@@ -18,7 +18,7 @@ from pathlib import Path
 
 import polars as pl
 
-from rtflite import RTFBody, RTFColumnHeader, RTFDocument, RTFFootnote, RTFSource, RTFTitle
+from rtflite import RTFBody, RTFColumnHeader, RTFDocument, RTFFootnote, RTFPage, RTFSource, RTFTitle
 from .plan import StudyPlan
 from .parse import StudyPlanParser
 
@@ -68,8 +68,8 @@ def ae_listing_ard(
     observation_filter: str | None,
     parameter_filter: str | None,
     id: tuple[str, str],
-    population_columns: list[str] | None = None,
-    observation_columns: list[str] | None = None,
+    population_columns: list[tuple[str, str]] | None = None,
+    observation_columns: list[tuple[str, str]] | None = None,
     sort_columns: list[str] | None = None,
 ) -> pl.DataFrame:
     """
@@ -84,8 +84,8 @@ def ae_listing_ard(
         observation_filter: SQL WHERE clause for observation (can be None)
         parameter_filter: SQL WHERE clause for parameter filtering (can be None)
         id: Tuple (variable_name, label) for ID column
-        population_columns: List of column names from population to include (e.g., ["SEX", "RACE", "AGE"])
-        observation_columns: List of column names from observation to include (e.g., ["AEDECOD", "AESEV"])
+        population_columns: List of tuples (variable_name, label) from population (e.g., [("SEX", "Sex"), ("RACE", "Race")])
+        observation_columns: List of tuples (variable_name, label) from observation (e.g., [("AEDECOD", "Adverse Event")])
         sort_columns: List of column names to sort by. If None, sorts by id column.
 
     Returns:
@@ -118,8 +118,10 @@ def ae_listing_ard(
         # Default: select id column only
         obs_cols = [id_var_name]
     else:
+        # Extract variable names from tuples
+        obs_col_names = [var_name for var_name, _ in observation_columns]
         # Ensure id is included
-        obs_cols = [id_var_name] + [col for col in observation_columns if col != id_var_name]
+        obs_cols = [id_var_name] + [col for col in obs_col_names if col != id_var_name]
 
     # Select available observation columns
     obs_cols_available = [col for col in obs_cols if col in observation_filtered.columns]
@@ -127,8 +129,10 @@ def ae_listing_ard(
 
     # Join with population to add population columns
     if population_columns is not None:
+        # Extract variable names from tuples
+        pop_col_names = [var_name for var_name, _ in population_columns]
         # Select id + requested population columns
-        pop_cols = [id_var_name] + [col for col in population_columns if col != id_var_name]
+        pop_cols = [id_var_name] + [col for col in pop_col_names if col != id_var_name]
         pop_cols_available = [col for col in pop_cols if col in population_filtered.columns]
         population_subset = population_filtered.select(pop_cols_available)
 
@@ -151,25 +155,33 @@ def ae_listing_ard(
 
 def ae_listing_rtf(
     df: pl.DataFrame,
+    column_labels: dict[str, str],
     title: list[str],
     footnote: list[str] | None,
     source: list[str] | None,
     col_rel_width: list[float] | None = None,
     group_by: list[str] | None = None,
+    page_by: list[str] | None = None,
+    orientation: str = "landscape",
 ) -> RTFDocument:
     """
     Generate RTF table from AE listing display DataFrame.
 
-    Creates a formatted RTF table with column headers and optional section grouping.
+    Creates a formatted RTF table with column headers and optional section grouping/pagination.
 
     Args:
         df: Display DataFrame from ae_listing_ard
+        column_labels: Dictionary mapping column names to display labels
         title: Title(s) for the table as list of strings
         footnote: Optional footnote(s) as list of strings
         source: Optional source note(s) as list of strings
         col_rel_width: Optional list of relative column widths. If None, auto-calculated
                        as equal widths for all columns
-        group_by: Optional list of column names to group by for section headers
+        group_by: Optional list of column names to group by for section headers within pages.
+                  Should only contain population columns (e.g., ["TRT01A", "USUBJID"])
+        page_by: Optional list of column names to trigger new pages when values change.
+                 Should only contain population columns (e.g., ["TRT01A"])
+        orientation: Page orientation ("portrait" or "landscape"), default is "landscape"
 
     Returns:
         RTFDocument: RTF document object that can be written to file
@@ -177,8 +189,8 @@ def ae_listing_rtf(
     # Calculate number of columns
     n_cols = len(df.columns)
 
-    # Build column headers
-    col_header = df.columns
+    # Build column headers using labels
+    col_header = [column_labels.get(col, col) for col in df.columns]
 
     # Calculate column widths
     if col_rel_width is None:
@@ -194,6 +206,7 @@ def ae_listing_rtf(
     # Build RTF document
     rtf_components = {
         "df": df,
+        "rtf_page": RTFPage(orientation=orientation),
         "rtf_title": RTFTitle(text=title_list),
         "rtf_column_header": [
             RTFColumnHeader(
@@ -206,7 +219,8 @@ def ae_listing_rtf(
             col_rel_width=col_widths,
             text_justification=["l"] * n_cols,
             border_left=["single"] * n_cols,
-            group_by=group_by,  # Add group_by for section headers
+            group_by=group_by,  # Section headers within pages
+            page_by=page_by,    # Trigger new pages when value changes
         ),
     }
 
@@ -235,18 +249,20 @@ def ae_listing(
     footnote: list[str] | None,
     source: list[str] | None,
     output_file: str,
-    population_columns: list[str] | None = None,
-    observation_columns: list[str] | None = None,
+    population_columns: list[tuple[str, str]] | None = None,
+    observation_columns: list[tuple[str, str]] | None = None,
     sort_columns: list[str] | None = None,
     group_by: list[str] | None = None,
+    page_by: list[str] | None = None,
     col_rel_width: list[float] | None = None,
+    orientation: str = "landscape",
 ) -> str:
     """
     Complete AE listing pipeline wrapper.
 
     This function orchestrates the two-step pipeline:
     1. ae_listing_ard: Filter, join, select, and sort columns
-    2. ae_listing_rtf: Generate RTF output with optional grouping
+    2. ae_listing_rtf: Generate RTF output with optional grouping/pagination
 
     Args:
         population: Population DataFrame (subject-level data, e.g., ADSL)
@@ -259,11 +275,13 @@ def ae_listing(
         footnote: Optional footnote for RTF output as list of strings
         source: Optional source for RTF output as list of strings
         output_file: File path to write RTF output
-        population_columns: Optional list of column names from population to include
-        observation_columns: Optional list of column names from observation to include
+        population_columns: Optional list of tuples (variable_name, label) from population
+        observation_columns: Optional list of tuples (variable_name, label) from observation
         sort_columns: Optional list of column names to sort by. If None, sorts by id column.
-        group_by: Optional list of column names to group by for section headers
+        group_by: Optional list of column names to group by for section headers (population columns only)
+        page_by: Optional list of column names to trigger new pages (population columns only)
         col_rel_width: Optional column widths for RTF output
+        orientation: Page orientation ("portrait" or "landscape"), default is "landscape"
 
     Returns:
         str: Path to the generated RTF file
@@ -281,14 +299,31 @@ def ae_listing(
         sort_columns=sort_columns,
     )
 
+    # Build column labels from tuples
+    id_var_name, id_var_label = id
+    column_labels = {id_var_name: id_var_label}
+
+    # Add observation column labels
+    if observation_columns is not None:
+        for var_name, var_label in observation_columns:
+            column_labels[var_name] = var_label
+
+    # Add population column labels
+    if population_columns is not None:
+        for var_name, var_label in population_columns:
+            column_labels[var_name] = var_label
+
     # Step 2: Generate RTF and write to file
     rtf_doc = ae_listing_rtf(
         df=df,
+        column_labels=column_labels,
         title=title,
         footnote=footnote,
         source=source,
         col_rel_width=col_rel_width,
         group_by=group_by,
+        page_by=page_by,
+        orientation=orientation,
     )
     rtf_doc.write_rtf(output_file)
 
@@ -320,15 +355,30 @@ def study_plan_to_ae_listing(
     id = ("USUBJID", "Subject ID")
     id_var_name = id[0]  # Extract variable name for use in column lists
 
-    # Column configuration - easy to customize
-    population_columns_base = ["SEX", "RACE", "AGE"]  # Demographics to include (group variable added dynamically)
-    observation_columns = ["ASTDY", "AEDECOD", "ADURN", "AESEV", "AESER", "AEREL", "AEACN", "AEOUT"]
+    # Column configuration with labels - easy to customize
+    # Population columns (demographics) - group variable will be added dynamically
+    population_columns_base = [
+        ("SEX", "Sex"),
+        ("RACE", "Race"),
+        ("AGE", "Age")
+    ]
 
-    # Sorting and grouping configuration
-    # Pattern: [group_variable, id_variable] + additional sort variables
-    sort_suffix = ["ASTDY"]  # Additional variables to sort by after group and subject ID
-    # Pattern: [group_variable, id_variable]
-    group_by_pattern = [id_var_name]  # Variables to group by after group variable
+    # Observation columns (event details)
+    observation_columns_base = [
+        ("ASTDY", "Study Day"),
+        ("AEDECOD", "Adverse Event"),
+        ("ADURN", "Duration (days)"),
+        ("AESEV", "Severity"),
+        ("AESER", "Serious"),
+        ("AEREL", "Related"),
+        ("AEACN", "Action Taken"),
+        ("AEOUT", "Outcome")
+    ]
+
+    # Sorting configuration
+    sort_columns_base = ["ASTDY"]
+    page_by = ["USUBJID", "SEX", "RACE", "AGE", "TRT01A"]
+    group_by = ["TRT01A", "USUBJID"]
 
     # Create output directory if it doesn't exist
     Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -365,10 +415,13 @@ def study_plan_to_ae_listing(
         # Get group variable name from YAML
         group_var_name, group_labels = parser.get_group_info(group)
 
-        # Build columns dynamically from base configuration
-        population_columns = population_columns_base + [group_var_name]
-        sort_columns = [group_var_name, id_var_name] + sort_suffix
-        group_by = [group_var_name] + group_by_pattern
+        # Determine group variable label
+        group_var_label = group_labels[0] if group_labels else "Treatment"
+
+        # Build columns dynamically from base configuration with labels
+        population_columns = population_columns_base + [(group_var_name, group_var_label)]
+        observation_columns = observation_columns_base
+        sort_columns = [group_var_name, id_var_name] + sort_columns_base
 
         # Get parameter filter if parameter is specified
         parameter_filter = None
@@ -417,6 +470,7 @@ def study_plan_to_ae_listing(
             observation_columns=observation_columns,
             sort_columns=sort_columns,
             group_by=group_by,
+            page_by=page_by,
         )
 
         rtf_files.append(rtf_path)

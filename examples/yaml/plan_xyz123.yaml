@@ -33,7 +33,7 @@ plans:
     population: "apat"
     observation: ["week12", "week24"]
     group: "trt01a"
-    parameter: ["any", "ser"]  
+    parameter: ["ser"]  
 
 
 population:
