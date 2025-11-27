@@ -26,7 +26,6 @@ from .parse import StudyPlanParser
 def _get_parameter_title(param) -> str:
     """
     Extract title from parameter for ae_listing title generation.
-
     Supports parameter.terms patterns:
     1. Both before and after: {"before": "serious", "after": "resulting in death"}
        -> "Serious Adverse Events Resulting In Death"
@@ -242,11 +241,10 @@ def ae_listing_rtf(
     title_list = [title] if isinstance(title, str) else title
     footnote_list = [footnote] if isinstance(footnote, str) else (footnote or [])
     source_list = [source] if isinstance(source, str) else (source or [])
-
     # Build RTF document
     rtf_components = {
         "df": df,
-        "rtf_page": RTFPage(orientation=orientation),
+        #"rtf_page": RTFPage(orientation=orientation),
         "rtf_title": RTFTitle(text=title_list),
         "rtf_column_header": [
             RTFColumnHeader(
@@ -259,10 +257,10 @@ def ae_listing_rtf(
             col_rel_width=col_widths,
             text_justification=["l"] * n_cols,
             border_left=["single"],
-            border_top = ["single"] + [""] * (n_cols - 1),
-            border_bottom = ["single"] + [""] * (n_cols - 1),
-            group_by=group_by,  
-            page_by=page_by,   
+            border_top=["single"] + [""] * (n_cols - 1),
+            border_bottom=["single"] + [""] * (n_cols - 1),
+            group_by=group_by,
+            page_by=page_by,
         ),
     }
 
