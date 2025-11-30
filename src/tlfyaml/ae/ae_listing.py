@@ -200,7 +200,7 @@ def ae_listing_rtf(
     title_list = [title] if isinstance(title, str) else title
     footnote_list = [footnote] if isinstance(footnote, str) else (footnote or [])
     source_list = [source] if isinstance(source, str) else (source or [])
-    print(page_by)
+
     # Build RTF document
     rtf_components = {
         "df": df,
