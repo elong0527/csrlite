@@ -2830,7 +2830,7 @@ wheels = [
 
 [[package]]
 name = "rtflite"
-version = "2.0.0"
+version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "narwhals" },
@@ -2838,9 +2838,9 @@ dependencies = [
     { name = "polars" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/56/6e/40059f65617f3a39fd301923bd7e7197e5fa2bc901ca16fe4fd37751af96/rtflite-2.0.0.tar.gz", hash = "sha256:00a5818686477657763c194f142fa967c7f2b0caa0977758d15db3fe26380b59", size = 2032316, upload-time = "2025-12-01T01:29:16.617Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/be/b078ef5952eff6fb2376dd5fbfe7f4b9bf3af0e95083ced31d509e3d23bb/rtflite-2.1.0.tar.gz", hash = "sha256:af9b23502267618ec1ecb273d5ffff8bebdfeb9009d1b51b4ea6e9b11a088c5d", size = 2431906, upload-time = "2025-12-02T04:08:33.573Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a7/06/2bf1a6eab4f1125d45bce9f4cd03b90ecbe8c3c1e7dd479b2cf2e96f9228/rtflite-2.0.0-py3-none-any.whl", hash = "sha256:0ce78d0c9eb1e5682ac0b54b9327cf8d11725ed2d52d514e68ae7b1c6c3b835a", size = 1152730, upload-time = "2025-12-01T01:29:14.61Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/79/b462bd4fbfc5d71e3e9de4e60fe23000af932a2acbcaefa768ad97c02587/rtflite-2.1.0-py3-none-any.whl", hash = "sha256:0dae41e15750ef9bd360b4989ff0dffe931355486b8af0ece0a83d02366b224c", size = 1150440, upload-time = "2025-12-02T04:08:32.099Z" },
 ]
 
 [[package]]
@@ -3043,7 +3043,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.1" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "rtflite", specifier = ">=2.0.0" },
+    { name = "rtflite", specifier = ">=2.1.0" },
     { name = "rtflite", marker = "extra == 'all'" },
     { name = "rtflite", marker = "extra == 'rtf'" },
 ]
