@@ -21,11 +21,12 @@ from pathlib import Path
 import polars as pl
 from rtflite import RTFDocument
 
-from ..count import count_subject, count_subject_with_observation
-from ..parse import StudyPlanParser
-from ..plan import StudyPlan
-from ..utils import apply_common_filters
-from .ae_utils import create_ae_rtf_table, get_ae_parameter_row_labels, get_ae_parameter_title
+from rtflite import RTFBody, RTFColumnHeader, RTFDocument, RTFFootnote, RTFSource, RTFTitle
+from ..common.plan import StudyPlan
+from ..common.count import count_subject, count_subject_with_observation
+from ..common.parse import StudyPlanParser
+from ..common.utils import apply_common_filters
+from .ae_utils import get_ae_parameter_title, get_ae_parameter_row_labels, create_ae_rtf_table
 
 
 def ae_specific_ard(
@@ -365,9 +366,11 @@ def study_plan_to_ae_specific(
 
     # Meta data
     analysis = "ae_specific"
-    # analysis_label = "Participants with Adverse Events"
-    output_dir = "examples/rtf"
-    footnote = ["Every participant is counted a single time for each applicable row and column."]
+    analysis_label = "Participants with Adverse Events"
+    output_dir = "studies/xyz123/rtf"
+    footnote = [
+        "Every participant is counted a single time for each applicable row and column."
+    ]
     source = None
 
     population_df_name = "adsl"
@@ -417,7 +420,7 @@ def study_plan_to_ae_specific(
         # Get parameter filter if parameter is specified
         parameter_filter = None
         if parameter:
-            param_names, param_filters, param_labels = parser.get_parameter_info(parameter)
+            param_names, param_filters, param_labels, _ = parser.get_parameter_info(parameter)  # Ignore indent for AE
             # For ae_specific, use the first (and typically only) filter
             parameter_filter = param_filters[0] if param_filters else None
 
