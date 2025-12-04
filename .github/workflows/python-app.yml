@@ -36,6 +36,7 @@ jobs:
         mypy .
     - name: Type check with Pyre
       run: |
+        python -c "import json, site; c = json.load(open('.pyre_configuration')); c['search_path'] = [site.getsitepackages()[0]]; json.dump(c, open('.pyre_configuration', 'w'), indent=2)"
         pyre check
     - name: Test with pytest
       run: |
