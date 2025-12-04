@@ -20,8 +20,9 @@ from typing import Any
 
 import polars as pl
 from rtflite import RTFBody, RTFColumnHeader, RTFDocument, RTFFootnote, RTFPage, RTFSource, RTFTitle
-from ..common.plan import StudyPlan
+
 from ..common.parse import StudyPlanParser
+from ..common.plan import StudyPlan
 from ..common.utils import apply_common_filters
 from .ae_utils import get_ae_parameter_title
 

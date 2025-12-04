@@ -10,14 +10,15 @@ This module provides a pipeline for Disposition Table 1.1 summary analysis:
 """
 
 from pathlib import Path
+
 import polars as pl
 from rtflite import RTFBody, RTFColumnHeader, RTFDocument, RTFFootnote, RTFSource, RTFTitle
 
-from ..common.plan import StudyPlan
+from ..ae.ae_utils import create_ae_rtf_table
 from ..common.count import count_subject, count_subject_with_observation
 from ..common.parse import StudyPlanParser
+from ..common.plan import StudyPlan
 from ..common.utils import apply_common_filters
-from ..ae.ae_utils import create_ae_rtf_table # Reusing generic table creation if applicable, or implement custom
 
 def study_plan_to_disposition_table_1_1(
     study_plan: StudyPlan,
