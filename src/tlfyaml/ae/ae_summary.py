@@ -51,7 +51,7 @@ def study_plan_to_ae_summary(
     population_df_name = "adsl"
     observation_df_name = "adae"
 
-    id = ("USUBJID", "Subject ID") 
+    id = ("USUBJID", "Subject ID")
     total = True
     missing_group = "error"
 
@@ -211,6 +211,7 @@ def ae_summary(
 
     return output_file
 
+
 def ae_summary_ard(
     population: pl.DataFrame,
     observation: pl.DataFrame,
@@ -252,7 +253,7 @@ def ae_summary_ard(
         population=population,
         observation=observation,
         population_filter=population_filter,
-        observation_filter=observation_filter
+        observation_filter=observation_filter,
     )
 
     # Filter observation data to include only subjects in the filtered population
@@ -260,8 +261,9 @@ def ae_summary_ard(
     observation_filtered_list = []
     for variable_filter, variable_label in variables:
         obs_filtered = (
-            observation_to_filter
-            .filter(pl.col(id_var_name).is_in(population_filtered[id_var_name].to_list()))
+            observation_to_filter.filter(
+                pl.col(id_var_name).is_in(population_filtered[id_var_name].to_list())
+            )
             .filter(pl.sql_expr(variable_filter))
             .with_columns(pl.lit(variable_label).alias("__index__"))
         )
@@ -269,7 +271,7 @@ def ae_summary_ard(
         observation_filtered_list.append(obs_filtered)
 
     # Concatenate all filtered observations
-    observation_filtered = pl.concat(observation_filtered_list) 
+    observation_filtered = pl.concat(observation_filtered_list)
 
     # Population
     n_pop = count_subject(
@@ -277,37 +279,35 @@ def ae_summary_ard(
         id=id_var_name,
         group=group_var_name,
         total=total,
-        missing_group=missing_group
+        missing_group=missing_group,
     )
 
     n_pop = n_pop.select(
         pl.lit(pop_var_name).alias("__index__"),
         pl.col(group_var_name).alias("__group__"),
-        pl.col("n_subj_pop").cast(pl.String).alias("__value__")
+        pl.col("n_subj_pop").cast(pl.String).alias("__value__"),
     )
 
     # Empty row with same structure as n_pop but with empty strings
     n_empty = n_pop.select(
-        pl.lit("").alias("__index__"),
-        pl.col("__group__"),
-        pl.lit("").alias("__value__")
+        pl.lit("").alias("__index__"), pl.col("__group__"), pl.lit("").alias("__value__")
     )
 
     # Observation
     n_obs = count_subject_with_observation(
         population=population_filtered,
-        observation = observation_filtered,
+        observation=observation_filtered,
         id=id_var_name,
         group=group_var_name,
         total=total,
-        variable = "__index__",
-        missing_group=missing_group
+        variable="__index__",
+        missing_group=missing_group,
     )
 
     n_obs = n_obs.select(
         pl.col("__index__"),
         pl.col(group_var_name).alias("__group__"),
-        pl.col("n_pct_subj_fmt").alias("__value__")
+        pl.col("n_pct_subj_fmt").alias("__value__"),
     )
 
     res = pl.concat([n_pop, n_empty, n_obs])
@@ -317,9 +317,9 @@ def ae_summary_ard(
     variable_labels = [label for _, label in variables]
     ordered_categories = [pop_var_name, ""] + variable_labels
 
-    res = res.with_columns(
-        pl.col("__index__").cast(pl.Enum(ordered_categories))
-    ).sort("__index__", "__group__")
+    res = res.with_columns(pl.col("__index__").cast(pl.Enum(ordered_categories))).sort(
+        "__index__", "__group__"
+    )
 
     return res
 
@@ -338,11 +338,7 @@ def ae_summary_df(ard: pl.DataFrame) -> pl.DataFrame:
         pl.DataFrame: Wide-format display table with groups as columns
     """
     # Pivot from long to wide format: __group__ values become columns
-    df_wide = ard.pivot(
-        index="__index__",
-        on="__group__",
-        values="__value__"
-    )
+    df_wide = ard.pivot(index="__index__", on="__group__", values="__value__")
 
     return df_wide
 
@@ -386,7 +382,7 @@ def ae_summary_rtf(
 
     # Calculate column widths - auto-calculate if not provided
     if col_rel_width is None:
-        col_widths = [n_cols - 1] + [1] * (n_cols - 1)
+        col_widths = [float(n_cols - 1)] + [1.0] * (n_cols - 1)
     else:
         col_widths = col_rel_width
 

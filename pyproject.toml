@@ -122,6 +122,7 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+exclude = ["build/"]
 
 [[tool.mypy.overrides]]
 module = [
@@ -132,6 +133,10 @@ module = [
     "plotly.*",
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+ignore_errors = true
 
 [tool.ruff]
 line-length = 100

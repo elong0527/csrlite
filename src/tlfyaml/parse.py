@@ -193,9 +193,7 @@ class StudyPlanParser:
             return parse_filter_to_sql(obs.filter)
         return None
 
-    def get_parameter_info(
-        self, parameter: str
-    ) -> tuple[list[str], list[str], list[str]]:
+    def get_parameter_info(self, parameter: str) -> tuple[list[str], list[str], list[str]]:
         """
         Get parameter names, filters, and labels.
 
@@ -282,9 +280,7 @@ class StudyPlanParser:
             datasets.append(ds)
         return tuple(datasets)
 
-    def get_population_data(
-        self, population: str, group: str
-    ) -> tuple[pl.DataFrame, str]:
+    def get_population_data(self, population: str, group: str) -> tuple[pl.DataFrame, str]:
         """
         Get filtered population dataset and group variable.
 
@@ -296,7 +292,7 @@ class StudyPlanParser:
             Tuple of (filtered_adsl, group_variable)
         """
         # Get ADSL dataset
-        adsl, = self.get_datasets("adsl")
+        (adsl,) = self.get_datasets("adsl")
 
         # Apply population filter
         pop_filter = self.get_population_filter(population)

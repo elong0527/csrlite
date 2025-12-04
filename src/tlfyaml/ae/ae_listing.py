@@ -50,8 +50,10 @@ def ae_listing_ard(
         observation_filter: SQL WHERE clause for observation (can be None)
         parameter_filter: SQL WHERE clause for parameter filtering (can be None)
         id: Tuple (variable_name, label) for ID column
-        population_columns: List of tuples (variable_name, label) from population (e.g., [("SEX", "Sex"), ("RACE", "Race")])
-        observation_columns: List of tuples (variable_name, label) from observation (e.g., [("AEDECOD", "Adverse Event")])
+        population_columns: List of tuples (variable_name, label) from population
+                            (e.g., [("SEX", "Sex"), ("RACE", "Race")])
+        observation_columns: List of tuples (variable_name, label) from observation
+                             (e.g., [("AEDECOD", "Adverse Event")])
         sort_columns: List of column names to sort by. If None, sorts by id column.
 
     Returns:
@@ -65,7 +67,7 @@ def ae_listing_ard(
         observation=observation,
         population_filter=population_filter,
         observation_filter=observation_filter,
-        parameter_filter=parameter_filter
+        parameter_filter=parameter_filter,
     )
 
     # Filter observation to include only subjects in filtered population
@@ -115,23 +117,20 @@ def ae_listing_ard(
         if population_columns:
             for var_name, var_label in population_columns:
                 column_labels[var_name] = var_label
-        
+
         # Ensure the order of labels matches the order of columns in page_by
         index_expressions = []
         for col_name in existing_page_by_cols:
             label = column_labels.get(col_name, col_name)
-            index_expressions.append(
-                pl.lit(f"{label} = ") + pl.col(col_name).cast(pl.Utf8)
-            )
-        
+            index_expressions.append(pl.lit(f"{label} = ") + pl.col(col_name).cast(pl.Utf8))
+
         result = result.with_columns(
             pl.concat_str(index_expressions, separator=", ").alias("__index__")
         )
 
-        page_by_remove = [col for col in page_by if col != id_var_name]
+        page_by_remove = [col for col in (page_by or []) if col != id_var_name]
         result = result.drop(page_by_remove)
-    
-    
+
     if "__index__" in result.columns:
         # Get all columns except __index__
         other_columns = [col for col in result.columns if col != "__index__"]
@@ -193,12 +192,12 @@ def ae_listing_rtf(
 
     # Calculate column widths
     if col_rel_width is None:
-        col_widths = [1] * n_cols
+        col_widths = [1.0] * n_cols
     else:
         col_widths = col_rel_width
 
     # Normalize title, footnote, source to lists
-    title_list = [title] if isinstance(title, str) else title
+    title_list = title
     footnote_list = [footnote] if isinstance(footnote, str) else (footnote or [])
     source_list = [source] if isinstance(source, str) else (source or [])
 
@@ -211,7 +210,7 @@ def ae_listing_rtf(
             RTFColumnHeader(
                 text=col_header[1:],
                 col_rel_width=col_widths[1:],
-                text_justification=["l"] +  ["c"] * (n_cols - 1),
+                text_justification=["l"] + ["c"] * (n_cols - 1),
             ),
         ],
         "rtf_body": RTFBody(
@@ -279,7 +278,8 @@ def ae_listing(
         population_columns: Optional list of tuples (variable_name, label) from population
         observation_columns: Optional list of tuples (variable_name, label) from observation
         sort_columns: Optional list of column names to sort by. If None, sorts by id column.
-        group_by: Optional list of column names to group by for section headers (population columns only)
+        group_by: Optional list of column names to group by for section headers
+                  (population columns only)
         page_by: Optional list of column names to trigger new pages (population columns only)
         col_rel_width: Optional column widths for RTF output
         orientation: Page orientation ("portrait" or "landscape"), default is "landscape"
@@ -354,13 +354,13 @@ def study_plan_to_ae_listing(
     # Meta data
     analysis = "ae_listing"
     output_dir = "examples/rtf"
-    col_rel_width = [1, 1, 3, 1, 1, 1, 1, 1, 1, 2]
+    col_rel_width = [1.0, 1.0, 3.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0]
     footnote = None
     source = None
 
     population_df_name = "adsl"
     observation_df_name = "adae"
-    
+
     id = ("USUBJID", "Subject ID")
     # Column configuration with labels - easy to customize
     # Population columns (demographics) - group variable will be added dynamically
@@ -379,11 +379,11 @@ def study_plan_to_ae_listing(
         ("AESER", "Serious"),
         ("AEREL", "Related"),
         ("AEACN", "Action Taken"),
-        ("AEOUT", "Outcome")
+        ("AEOUT", "Outcome"),
     ]
 
     # Sorting configuration
-    sort_columns = ["TRT01A", "USUBJID","ASTDY"]
+    sort_columns = ["TRT01A", "USUBJID", "ASTDY"]
     page_by = ["USUBJID", "SEX", "RACE", "AGE", "TRT01A"]
     group_by = ["USUBJID"]
 
@@ -410,7 +410,11 @@ def study_plan_to_ae_listing(
 
         # Validate group is specified
         if group is None:
-            raise ValueError(f"Group not specified in YAML for analysis: population={population}, observation={observation}, parameter={parameter}. Please add group to your YAML plan.")
+            raise ValueError(
+                f"Group not specified in YAML for analysis: population={population}, "
+                f"observation={observation}, parameter={parameter}. "
+                "Please add group to your YAML plan."
+            )
 
         # Get datasets using parser
         population_df, observation_df = parser.get_datasets(population_df_name, observation_df_name)
@@ -428,7 +432,6 @@ def study_plan_to_ae_listing(
         # Build columns dynamically from base configuration with labels
         population_columns = population_columns_base + [(group_var_name, group_var_label)]
         observation_columns = observation_columns_base
-        
 
         # Get parameter filter if parameter is specified
         parameter_filter = None
@@ -476,7 +479,7 @@ def study_plan_to_ae_listing(
             population_columns=population_columns,
             observation_columns=observation_columns,
             sort_columns=sort_columns,
-            col_rel_width = col_rel_width,
+            col_rel_width=col_rel_width,
             group_by=group_by,
             page_by=page_by,
         )

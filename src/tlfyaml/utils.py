@@ -11,7 +11,7 @@ def apply_common_filters(
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
     """
     Apply standard population, observation, and parameter filters.
-    
+
     Returns:
         Tuple of (filtered_population, filtered_observation_pre_id_match)
     """
@@ -29,5 +29,5 @@ def apply_common_filters(
     # Apply parameter filter
     if parameter_filter:
         observation_filtered = observation_filtered.filter(pl.sql_expr(parameter_filter))
-        
+
     return population_filtered, observation_filtered

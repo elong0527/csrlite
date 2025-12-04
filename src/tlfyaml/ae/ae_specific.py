@@ -77,15 +77,13 @@ def ae_specific_ard(
         observation=observation,
         population_filter=population_filter,
         observation_filter=observation_filter,
-        parameter_filter=parameter_filter
+        parameter_filter=parameter_filter,
     )
 
     # Filter observation to include only subjects in filtered population
     observation_filtered = observation_to_filter.filter(
         pl.col(id_var_name).is_in(population_filtered[id_var_name].to_list())
-    ).with_columns(
-        pl.col(ae_term_var_name).alias("__index__")
-    )
+    ).with_columns(pl.col(ae_term_var_name).alias("__index__"))
 
     # Note: We'll extract categories from concatenated result later for both __index__ and __group__
 
@@ -95,21 +93,19 @@ def ae_specific_ard(
         id=id_var_name,
         group=group_var_name,
         total=total,
-        missing_group=missing_group
+        missing_group=missing_group,
     )
 
     # Transform population counts for display
     n_pop = n_pop_counts.select(
         pl.lit(pop_var_name).alias("__index__"),
         pl.col(group_var_name).cast(pl.String).alias("__group__"),
-        pl.col("n_subj_pop").cast(pl.String).alias("__value__")
+        pl.col("n_subj_pop").cast(pl.String).alias("__value__"),
     )
 
     # Empty separator row
     n_empty = n_pop.select(
-        pl.lit("").alias("__index__"),
-        pl.col("__group__"),
-        pl.lit("").alias("__value__")
+        pl.lit("").alias("__index__"), pl.col("__group__"), pl.lit("").alias("__value__")
     )
 
     # Summary rows: "with one or more" and "with no" adverse events
@@ -129,29 +125,25 @@ def ae_specific_ard(
         group=group_var_name,
         variable="__has_event__",
         total=total,
-        missing_group=missing_group
+        missing_group=missing_group,
     )
 
     # Extract 'with' counts
-    n_with = (
-        event_counts
-        .filter(pl.col("__has_event__"))
-        .select([
+    n_with = event_counts.filter(pl.col("__has_event__")).select(
+        [
             pl.lit(n_with_label).alias("__index__"),
             pl.col(group_var_name).cast(pl.String).alias("__group__"),
-            pl.col("n_pct_subj_fmt").alias("__value__")
-        ])
+            pl.col("n_pct_subj_fmt").alias("__value__"),
+        ]
     )
 
     # Extract 'without' counts
-    n_without = (
-        event_counts
-        .filter(~pl.col("__has_event__"))
-        .select([
+    n_without = event_counts.filter(~pl.col("__has_event__")).select(
+        [
             pl.lit(n_without_label).alias("__index__"),
             pl.col(group_var_name).cast(pl.String).alias("__group__"),
-            pl.col("n_pct_subj_fmt").alias("__value__")
-        ])
+            pl.col("n_pct_subj_fmt").alias("__value__"),
+        ]
     )
 
     # AE term counts
@@ -162,16 +154,16 @@ def ae_specific_ard(
         group=group_var_name,
         total=total,
         variable="__index__",
-        missing_group=missing_group
+        missing_group=missing_group,
     )
 
     n_index = n_index.select(
         (
-            pl.col("__index__").cast(pl.String).str.slice(0, 1).str.to_uppercase() +
-            pl.col("__index__").cast(pl.String).str.slice(1).str.to_lowercase()
+            pl.col("__index__").cast(pl.String).str.slice(0, 1).str.to_uppercase()
+            + pl.col("__index__").cast(pl.String).str.slice(1).str.to_lowercase()
         ).alias("__index__"),
         pl.col(group_var_name).cast(pl.String).alias("__group__"),
-        pl.col("n_pct_subj_fmt").alias("__value__")
+        pl.col("n_pct_subj_fmt").alias("__value__"),
     )
 
     # Concatenate all parts
@@ -184,10 +176,12 @@ def ae_specific_ard(
     group_categories = res.select("__group__").unique(maintain_order=True).to_series().to_list()
 
     # Convert to Enum types for proper categorical ordering and sorting
-    res = res.with_columns([
-        pl.col("__index__").cast(pl.Enum(index_categories)),
-        pl.col("__group__").cast(pl.Enum(group_categories))
-    ])
+    res = res.with_columns(
+        [
+            pl.col("__index__").cast(pl.Enum(index_categories)),
+            pl.col("__group__").cast(pl.Enum(group_categories)),
+        ]
+    )
 
     # Sort by index and group using categorical ordering
     res = res.sort("__index__", "__group__")
@@ -209,17 +203,10 @@ def ae_specific_df(ard: pl.DataFrame) -> pl.DataFrame:
         pl.DataFrame: Wide-format display table with index rows and groups as columns
     """
     # Pivot from long to wide format
-    df_wide = ard.pivot(
-        index="__index__",
-        on="__group__",
-        values="__value__"
-    )
+    df_wide = ard.pivot(index="__index__", on="__group__", values="__value__")
 
     # Rename __index__ to display column name
-    df_wide = df_wide.rename({"__index__": "Term"}).select(
-        pl.col("Term"),
-        pl.exclude("Term")
-    )
+    df_wide = df_wide.rename({"__index__": "Term"}).select(pl.col("Term"), pl.exclude("Term"))
 
     return df_wide
 
@@ -263,7 +250,7 @@ def ae_specific_rtf(
 
     # Calculate column widths
     if col_rel_width is None:
-        col_widths = [n_cols/1.5] + [1] * (n_cols - 1)
+        col_widths = [n_cols / 1.5] + [1] * (n_cols - 1)
     else:
         col_widths = col_rel_width
 
@@ -317,7 +304,8 @@ def ae_specific(
         footnote: Optional footnote for RTF output as list of strings
         source: Optional source for RTF output as list of strings
         output_file: File path to write RTF output
-        ae_term: Tuple (variable_name, label) for AE term column (default: ("AEDECOD", "Adverse Event"))
+        ae_term: Tuple (variable_name, label) for AE term column
+                 (default: ("AEDECOD", "Adverse Event"))
         total: Whether to include total column (default: True)
         col_rel_width: Optional column widths for RTF output
         missing_group: How to handle missing group values (default: "error")
@@ -379,9 +367,7 @@ def study_plan_to_ae_specific(
     analysis = "ae_specific"
     # analysis_label = "Participants with Adverse Events"
     output_dir = "examples/rtf"
-    footnote = [
-        "Every participant is counted a single time for each applicable row and column."
-    ]
+    footnote = ["Every participant is counted a single time for each applicable row and column."]
     source = None
 
     population_df_name = "adsl"

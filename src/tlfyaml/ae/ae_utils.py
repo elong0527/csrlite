@@ -17,17 +17,17 @@ def get_ae_parameter_title(param: Any, prefix: str = "Participants With") -> str
         Title string for the analysis
     """
     default_suffix = "Adverse Events"
-    
+
     if not param:
         return f"{prefix} {default_suffix}"
 
     # Check for terms attribute
-    if hasattr(param, 'terms') and param.terms and isinstance(param.terms, dict):
+    if hasattr(param, "terms") and param.terms and isinstance(param.terms, dict):
         terms = param.terms
 
         # Preprocess to empty strings (avoiding None)
-        before = terms.get('before', '').title()
-        after = terms.get('after', '').title()
+        before = terms.get("before", "").title()
+        after = terms.get("after", "").title()
 
         # Build title and clean up extra spaces
         title = f"{prefix} {before} {default_suffix} {after}"
@@ -35,6 +35,7 @@ def get_ae_parameter_title(param: Any, prefix: str = "Participants With") -> str
 
     # Fallback to default
     return f"{prefix} {default_suffix}"
+
 
 def get_ae_parameter_row_labels(param: Any) -> tuple[str, str]:
     """
@@ -47,12 +48,12 @@ def get_ae_parameter_row_labels(param: Any) -> tuple[str, str]:
     default_with = "    with one or more adverse events"
     default_without = "    with no adverse events"
 
-    if not param or not hasattr(param, 'terms') or not param.terms:
+    if not param or not hasattr(param, "terms") or not param.terms:
         return (default_with, default_without)
 
     terms = param.terms
-    before = terms.get('before', '').lower()
-    after = terms.get('after', '').lower()
+    before = terms.get("before", "").lower()
+    after = terms.get("after", "").lower()
 
     # Build dynamic labels with leading indentation
     with_label = f"with one or more {before} adverse events {after}"
@@ -64,6 +65,7 @@ def get_ae_parameter_row_labels(param: Any) -> tuple[str, str]:
 
     return (with_label, without_label)
 
+
 def create_ae_rtf_table(
     df: pl.DataFrame,
     col_header_1: list[str],
@@ -72,13 +74,13 @@ def create_ae_rtf_table(
     title: list[str] | str,
     footnote: list[str] | str | None,
     source: list[str] | str | None,
-    borders_2: bool = True
+    borders_2: bool = True,
 ) -> RTFDocument:
     """
     Create a standardized RTF table document with 1 or 2 header rows.
     """
     n_cols = len(df.columns)
-    
+
     # Calculate column widths if None - simple default
     if col_widths is None:
         col_widths = [1] * n_cols
@@ -87,7 +89,7 @@ def create_ae_rtf_table(
     title_list = [title] if isinstance(title, str) else title
     footnote_list = [footnote] if isinstance(footnote, str) else (footnote or [])
     source_list = [source] if isinstance(source, str) else (source or [])
-    
+
     headers = [
         RTFColumnHeader(
             text=col_header_1,
@@ -95,7 +97,7 @@ def create_ae_rtf_table(
             text_justification=["l"] + ["c"] * (n_cols - 1),
         )
     ]
-    
+
     if col_header_2:
         h2_kwargs = {
             "text": col_header_2,
@@ -105,9 +107,9 @@ def create_ae_rtf_table(
         if borders_2:
             h2_kwargs["border_left"] = ["single"]
             h2_kwargs["border_top"] = [""]
-            
+
         headers.append(RTFColumnHeader(**h2_kwargs))
-        
+
     rtf_components = {
         "df": df,
         "rtf_title": RTFTitle(text=title_list),
@@ -118,11 +120,11 @@ def create_ae_rtf_table(
             border_left=["single"] * n_cols,
         ),
     }
-    
+
     if footnote_list:
         rtf_components["rtf_footnote"] = RTFFootnote(text=footnote_list)
 
     if source_list:
         rtf_components["rtf_source"] = RTFSource(text=source_list)
-        
+
     return RTFDocument(**rtf_components)
