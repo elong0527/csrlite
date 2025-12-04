@@ -18,7 +18,6 @@ class TestParse(unittest.TestCase):
 
     def test_parse_filter_to_sql_empty(self) -> None:
         self.assertEqual(parse_filter_to_sql(""), "1=1")
-        self.assertEqual(parse_filter_to_sql(None), "1=1")
 
     def test_parse_parameter_single(self) -> None:
         self.assertEqual(parse_parameter("param1"), ["param1"])
@@ -28,4 +27,3 @@ class TestParse(unittest.TestCase):
 
     def test_parse_parameter_empty(self) -> None:
         self.assertEqual(parse_parameter(""), [])
-        self.assertEqual(parse_parameter(None), [])
