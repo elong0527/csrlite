@@ -30,10 +30,6 @@ from .common.parse import (
     StudyPlanParser,
     parse_filter_to_sql,
 )
-from .plan import (
-    # Core classes
-    load_plan,
-)
 
 from .disposition.disposition_table_1_1 import (
     disposition_table_1_1,
