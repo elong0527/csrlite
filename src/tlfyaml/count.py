@@ -112,9 +112,9 @@ def count_subject_with_observation(
 
     obs = observation.select(id, variable).join(pop, on = id, how = "left")
 
-    if obs[id].is_in(pop[id]).all() == False:
+    if obs[id].is_in(pop[id].to_list()).all() == False:
         # Get IDs that are in obs but not in pop
-        missing_ids = obs.filter(~pl.col(id).is_in(pop[id])).select(id).unique().to_series().to_list()
+        missing_ids = obs.filter(~pl.col(id).is_in(pop[id].to_list())).select(id).unique().to_series().to_list()
         raise ValueError(f"Some '{id}' values in the observation DataFrame are not present in the population DataFrame: {missing_ids}")
 
     df_pop =count_subject(

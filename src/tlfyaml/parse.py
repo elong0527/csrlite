@@ -37,7 +37,9 @@ def parse_filter_to_sql(filter_str: str) -> str:
     # Convert Python syntax to SQL
     sql = sql.replace("==", "=")  # Python equality to SQL
     sql = sql.replace(" and ", " AND ")  # Python to SQL
+    sql = sql.replace(" and ", " AND ")  # Python to SQL
     sql = sql.replace(" or ", " OR ")  # Python to SQL
+    sql = sql.replace(" in ", " IN ")  # Python to SQL
 
     # Convert Python list syntax to SQL IN: ['A', 'B'] -> ('A', 'B')
     sql = sql.replace("[", "(").replace("]", ")")
