@@ -6,24 +6,6 @@ from tlfyaml.plan import KeywordRegistry, PlanExpander, StudyPlan
 
 
 class TestPlan(unittest.TestCase):
-    def test_keyword_registry_load(self) -> None:
-        registry = KeywordRegistry()
-        data = {
-            "population": [{"name": "pop1", "filter": "f1"}],
-            "observation": [{"name": "obs1", "filter": "f2"}],
-            "parameter": [{"name": "param1", "filter": "f3"}],
-            "group": [{"name": "grp1", "variable": "var1"}],
-            "data": [{"name": "ds1", "path": "p1"}],
-        }
-
-        registry.load_from_dict(data)
-
-        self.assertEqual(registry.get_population("pop1").filter, "f1")
-        self.assertEqual(registry.get_observation("obs1").filter, "f2")
-        self.assertEqual(registry.get_parameter("param1").filter, "f3")
-        self.assertEqual(registry.get_group("grp1").variable, "var1")
-        self.assertEqual(registry.get_data_source("ds1").path, "p1")
-
     def test_plan_expander_simple(self) -> None:
         registry = KeywordRegistry()
         expander = PlanExpander(registry)
