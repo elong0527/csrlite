@@ -16,8 +16,6 @@ and parse.py utilities for StudyPlan parsing.
 from pathlib import Path
 
 import polars as pl
-from rtflite import RTFDocument
-
 from rtflite import RTFBody, RTFColumnHeader, RTFDocument, RTFFootnote, RTFSource, RTFTitle
 from ..common.plan import StudyPlan
 from ..common.count import count_subject, count_subject_with_observation
