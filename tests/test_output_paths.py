@@ -120,7 +120,7 @@ class TestOutputPaths(unittest.TestCase):
             Path("custom/output/dir/ae_specific_pop1_obs1_param1.rtf"),
         )
 
-    @patch("tlfyaml.disposition.disposition.disposition")
+    @patch("tlfyaml.disposition.disposition.disposition", create=True)
     def test_disposition_output_path(self, mock_disposition: MagicMock) -> None:
         mock_disposition.side_effect = lambda **kwargs: kwargs["output_file"]
 
