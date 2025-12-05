@@ -27,6 +27,8 @@ from .common.plan import (
 )
 from .disposition.disposition import (
     disposition as disposition_table_1_1,
+)
+from .disposition.disposition import (
     study_plan_to_disposition,
 )
 
