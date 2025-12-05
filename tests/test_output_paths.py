@@ -120,26 +120,25 @@ class TestOutputPaths(unittest.TestCase):
             Path("custom/output/dir/ae_specific_pop1_obs1_param1.rtf"),
         )
 
-    def test_disposition_output_path(self) -> None:
-        # Patch where disposition is called, not where it's defined
-        with patch("tlfyaml.disposition.disposition.disposition") as mock_disposition:
-            mock_disposition.side_effect = lambda **kwargs: kwargs["output_file"]
+    @patch("tlfyaml.disposition.disposition.disposition")
+    def test_disposition_output_path(self, mock_disposition: MagicMock) -> None:
+        mock_disposition.side_effect = lambda **kwargs: kwargs["output_file"]
 
-            self.mock_plan.get_plan_df.return_value = pl.DataFrame(
-                {
-                    "analysis": ["disposition_table_1_1"],
-                    "population": ["pop1"],
-                    "observation": ["obs1"],
-                    "parameter": ["param1"],
-                    "group": ["grp1"],
-                    "name": ["test_analysis"],
-                }
-            )
+        self.mock_plan.get_plan_df.return_value = pl.DataFrame(
+            {
+                "analysis": ["disposition_table_1_1"],
+                "population": ["pop1"],
+                "observation": ["obs1"],
+                "parameter": ["param1"],
+                "group": ["grp1"],
+                "name": ["test_analysis"],
+            }
+        )
 
-            output_files = study_plan_to_disposition(self.mock_plan)
+        output_files = study_plan_to_disposition(self.mock_plan)
 
-            self.assertEqual(len(output_files), 1)
-            self.assertEqual(
-                Path(output_files[0]),
-                Path("custom/output/dir/disposition_table_1_1_pop1_grp1.rtf"),
-            )
+        self.assertEqual(len(output_files), 1)
+        self.assertEqual(
+            Path(output_files[0]),
+            Path("custom/output/dir/disposition_table_1_1_pop1_grp1.rtf"),
+        )
