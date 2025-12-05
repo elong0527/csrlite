@@ -61,3 +61,22 @@ class TestPlan(unittest.TestCase):
 
             self.assertIn("adsl", plan.datasets)
             self.assertIsNotNone(plan.keywords.get_data_source("adsl"))
+
+    def test_study_plan_output_dir(self) -> None:
+        # Test with output dir specified
+        study_data = {
+            "study": {"name": "Test Study", "output": "results/rtf"},
+            "data": [],
+            "plans": [],
+        }
+        plan = StudyPlan(study_data)
+        self.assertEqual(plan.output_dir, "results/rtf")
+
+        # Test default
+        study_data_default = {
+            "study": {"name": "Test Study"},
+            "data": [],
+            "plans": [],
+        }
+        plan_default = StudyPlan(study_data_default)
+        self.assertEqual(plan_default.output_dir, ".")
