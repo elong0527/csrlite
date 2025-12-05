@@ -27,9 +27,7 @@ from .common.plan import (
 )
 from .disposition.disposition import (
     disposition,
-    disposition_table_1_1,  # Backward compatibility
     study_plan_to_disposition,
-    study_plan_to_disposition_table_1_1,  # Backward compatibility
 )
 
 # Main exports for common usage
@@ -47,9 +45,6 @@ __all__ = [
     # Disposition analysis
     "disposition",
     "study_plan_to_disposition",
-    # Backward compatibility
-    "disposition_table_1_1",
-    "study_plan_to_disposition_table_1_1",
     # Count functions
     "count_subject",
     "count_subject_with_observation",

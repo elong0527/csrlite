@@ -31,7 +31,7 @@ class TestDispositionArd(unittest.TestCase):
                 "SAFFL": ["Y", "Y", "Y", "Y", "Y", "Y"],
             }
         )
-        
+
         self.observation_data = pl.DataFrame(
             {
                 "USUBJID": ["01", "03", "04"],
@@ -46,7 +46,7 @@ class TestDispositionArd(unittest.TestCase):
             ("SAFFL == 'Y'", "Enrolled"),
             ("DSDECOD == 'Completed'", "Completed"),
         ]
-        
+
         ard = disposition_ard(
             population=self.population_data,
             observation=self.observation_data,
@@ -58,12 +58,12 @@ class TestDispositionArd(unittest.TestCase):
             total=True,
             missing_group="error",
         )
-        
+
         # Check that ARD has expected columns
         self.assertIn("__index__", ard.columns)
         self.assertIn("__group__", ard.columns)
         self.assertIn("__value__", ard.columns)
-        
+
         # Check that we have results for all groups
         groups = ard["__group__"].unique().to_list()
         self.assertIn("Treatment A", groups)
@@ -75,7 +75,7 @@ class TestDispositionArd(unittest.TestCase):
         variables = [
             ("SAFFL == 'Y'", "Enrolled"),
         ]
-        
+
         ard = disposition_ard(
             population=self.population_data,
             observation=self.observation_data,
@@ -87,7 +87,7 @@ class TestDispositionArd(unittest.TestCase):
             total=True,
             missing_group="error",
         )
-        
+
         # When no group is specified, __all__ is used
         self.assertIn("__group__", ard.columns)
         groups = ard["__group__"].unique().to_list()
@@ -98,7 +98,7 @@ class TestDispositionArd(unittest.TestCase):
         variables = [
             ("SAFFL == 'Y'", "Safety Population"),
         ]
-        
+
         ard = disposition_ard(
             population=self.population_data,
             observation=self.observation_data,
@@ -110,7 +110,7 @@ class TestDispositionArd(unittest.TestCase):
             total=False,
             missing_group="error",
         )
-        
+
         # Should only have Treatment A group
         groups = ard["__group__"].unique().to_list()
         self.assertEqual(len(groups), 1)
@@ -123,7 +123,7 @@ class TestDispositionArd(unittest.TestCase):
             ("DSDECOD == 'Completed'", "    Completed"),
             ("DSDECOD == 'Withdrawn'", "    Withdrawn"),
         ]
-        
+
         ard = disposition_ard(
             population=self.population_data,
             observation=self.observation_data,
@@ -135,7 +135,7 @@ class TestDispositionArd(unittest.TestCase):
             total=True,
             missing_group="error",
         )
-        
+
         # Check that labels are preserved including indentation
         labels = ard["__index__"].unique().to_list()
         self.assertIn("Enrolled", labels)
@@ -153,14 +153,14 @@ class TestDispositionDf(unittest.TestCase):
                 "__value__": ["3 (100%)", "3 (100%)", "1 (33.3%)", "2 (66.7%)"],
             }
         )
-        
+
         df = disposition_df(ard)
-        
+
         # Check columns
         self.assertIn("Disposition Status", df.columns)
         self.assertIn("Treatment A", df.columns)
         self.assertIn("Treatment B", df.columns)
-        
+
         # Check shape
         self.assertEqual(df.height, 2)  # Two rows: Enrolled, Completed
 
@@ -175,9 +175,9 @@ class TestDispositionDf(unittest.TestCase):
                 "__value__": ["1", "2", "3", "4", "5", "6"],
             }
         ).with_columns(pl.col("__index__").cast(pl.Enum(var_labels)))
-        
+
         df = disposition_df(ard)
-        
+
         # Check that rows are in expected order
         status_col = df["Disposition Status"].to_list()
         self.assertEqual(status_col, var_labels)
@@ -194,7 +194,7 @@ class TestDispositionRtf(unittest.TestCase):
                 "Total": ["6 (100%)", "3 (50.0%)"],
             }
         )
-        
+
         rtf_doc = disposition_rtf(
             df=df,
             title=["Disposition of Participants", "Safety Population"],
@@ -202,10 +202,10 @@ class TestDispositionRtf(unittest.TestCase):
             source=None,
             col_rel_width=None,
         )
-        
+
         # Check that RTF document was created
         self.assertIsNotNone(rtf_doc)
-        
+
     def test_disposition_rtf_custom_widths(self) -> None:
         """Test RTF generation with custom column widths."""
         df = pl.DataFrame(
@@ -214,7 +214,7 @@ class TestDispositionRtf(unittest.TestCase):
                 "Treatment A": ["3 (100%)"],
             }
         )
-        
+
         rtf_doc = disposition_rtf(
             df=df,
             title=["Test Title"],
@@ -222,7 +222,7 @@ class TestDispositionRtf(unittest.TestCase):
             source=None,
             col_rel_width=[3.0, 1.5],
         )
-        
+
         self.assertIsNotNone(rtf_doc)
 
 
@@ -243,14 +243,14 @@ class TestDispositionPipeline(unittest.TestCase):
                 "SAFFL": ["Y", "Y", "Y", "Y", "Y", "Y"],
             }
         )
-        
+
         self.observation_data = pl.DataFrame(
             {
                 "USUBJID": ["01", "03", "04"],
                 "DSDECOD": ["Completed", "Withdrawn", "Screening Failure"],
             }
         )
-        
+
         self.output_dir = Path("tests/output")
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -266,9 +266,9 @@ class TestDispositionPipeline(unittest.TestCase):
             ("SAFFL == 'Y'", "Enrolled"),
             ("DSDECOD == 'Completed'", "    Completed"),
         ]
-        
+
         output_file = str(self.output_dir / "test_disposition.rtf")
-        
+
         result_path = disposition(
             population=self.population_data,
             observation=self.observation_data,
@@ -284,7 +284,7 @@ class TestDispositionPipeline(unittest.TestCase):
             total=True,
             missing_group="error",
         )
-        
+
         # Check that file was created
         self.assertTrue(Path(result_path).exists())
         self.assertEqual(result_path, output_file)
@@ -293,7 +293,7 @@ class TestDispositionPipeline(unittest.TestCase):
         """Test disposition without total column."""
         variables = [("SAFFL == 'Y'", "Enrolled")]
         output_file = str(self.output_dir / "test_disposition_no_total.rtf")
-        
+
         result_path = disposition(
             population=self.population_data,
             observation=self.observation_data,
@@ -308,7 +308,7 @@ class TestDispositionPipeline(unittest.TestCase):
             output_file=output_file,
             total=False,
         )
-        
+
         self.assertTrue(Path(result_path).exists())
 
 
@@ -328,14 +328,14 @@ class TestStudyPlanToDisposition(unittest.TestCase):
         """Test generating disposition tables from StudyPlan."""
         # Load the study plan
         study_plan = load_plan("studies/xyz123/yaml/plan_ds_xyz123.yaml")
-        
+
         # Generate disposition tables
         rtf_files = study_plan_to_disposition(study_plan)
-        
+
         # Check that files were generated
         self.assertIsInstance(rtf_files, list)
         self.assertGreater(len(rtf_files), 0)
-        
+
         # Check that all files exist
         for rtf_file in rtf_files:
             self.assertTrue(Path(rtf_file).exists(), f"File {rtf_file} should exist")

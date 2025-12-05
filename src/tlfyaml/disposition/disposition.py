@@ -1,3 +1,4 @@
+# pyre-strict
 """
 Disposition Table 1.1 Analysis Functions
 
