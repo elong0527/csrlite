@@ -1,3 +1,17 @@
+# Study XYZ123 - Analysis Plan
+# This file contains only the plan specifications using condensed keyword approach
+
+study:
+  name: "XYZ123"
+  title: "Phase III Study of Drug X vs Placebo"
+  template:
+    - ../../yaml/organization.yaml
+
+# Analysis Plans - Using metalite-style condensed format
+plans:
+  # Demographics - Single combination
+  - analysis: "demographics"
+    population: "itt"
     group: "trt01a"
 
   # AE Summary tables
@@ -75,10 +89,17 @@ parameter:
     filter: "adae:trtemfl == 'Y' and adae:ae"
     terms:
       after: "resulting in death"
-    
+
   - name: ser_death
     label: "with serious adverse events resulting in death"
     filter: "adae:trtemfl == 'Y' and adae:aeser == 'Y' and adae:ae"
     terms:
       before: "serious"
       after: "resulting in death"
+
+
+data:
+  - name: adsl 
+    path: ../../../data/adsl.parquet
+  - name: adae
+    path: ../../../data/adae.parquet

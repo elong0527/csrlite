@@ -38,7 +38,7 @@ from tlfyaml.ae.ae_listing import ae_listing_ard, ae_listing_rtf, ae_listing
 ## StudyPlan-Driven Workflow
 
 ```{python}
-study_plan = load_plan("examples/yaml/plan_xyz123.yaml")
+study_plan = load_plan("studies/xyz123/yaml/plan_ae_xyz123.yaml")
 study_plan.get_plan_df().filter(pl.col("analysis") == "ae_listing")
 ```
 
@@ -79,7 +79,7 @@ ae_listing(
     ],
     footnote=["Adverse events are sorted by subject ID and study day."],
     source=["Source: ADSL and ADAE datasets"],
-    output_file="examples/rtf/ae_listing.rtf",
+    output_file="studies/xyz123/rtf/ae_listing.rtf",
     population_columns=[
         ("TRT01A", "Treatment")
     ],
@@ -95,7 +95,7 @@ ae_listing(
 
 ```{python}
 #| echo: false
-converter.convert("examples/rtf/ae_listing.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
+converter.convert("studies/xyz123/rtf/ae_listing.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
 ```
 
 <embed src="pdf/ae_listing.pdf" style="width:100%; height:600px" type="application/pdf">
@@ -183,12 +183,12 @@ ae_listing_rtf(
     source=["Source: ADSL and ADAE datasets"],
     group_by=["USUBJID"],
     page_by=["__index__"],
-).write_rtf("examples/rtf/ae_listing_step.rtf")
+).write_rtf("studies/xyz123/rtf/ae_listing_step.rtf")
 ```
 
 ```{python}
 #| echo: false
-converter.convert("examples/rtf/ae_listing_step.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
+converter.convert("studies/xyz123/rtf/ae_listing_step.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
 ```
 
 <embed src="pdf/ae_listing_step.pdf" style="width:100%; height:600px" type="application/pdf">
@@ -211,7 +211,7 @@ ae_listing(
     ],
     footnote=["Listing includes only serious adverse events."],
     source=["Source: ADSL and ADAE datasets"],
-    output_file="examples/rtf/ae_listing_custom.rtf",
+    output_file="studies/xyz123/rtf/ae_listing_custom.rtf",
     population_columns=[("SEX", "Sex"), ("AGE", "Age"), ("TRT01A", "Treatment")],  # Minimal demographics
     observation_columns=[
         ("AEDECOD", "Adverse Event"),
@@ -227,7 +227,7 @@ ae_listing(
 
 ```{python}
 #| echo: false
-converter.convert("examples/rtf/ae_listing_custom.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
+converter.convert("studies/xyz123/rtf/ae_listing_custom.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
 ```
 
 <embed src="pdf/ae_listing_custom.pdf" style="width:100%; height:600px" type="application/pdf">
