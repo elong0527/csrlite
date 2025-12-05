@@ -8,7 +8,7 @@ using YAML plans with template inheritance and keyword resolution.
 import itertools
 from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 import polars as pl
 
@@ -217,7 +217,7 @@ class StudyPlan:
     def output_dir(self) -> str:
         """Get output directory from study configuration."""
         study_config = self.study_data.get("study", {})
-        return study_config.get("output", ".")
+        return cast(str, study_config.get("output", "."))
 
     def load_datasets(self) -> None:
         """Load datasets from paths specified in data_sources."""
