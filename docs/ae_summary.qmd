@@ -26,11 +26,7 @@ import rtflite as rtf
 sys.path.insert(0, 'src')
 
 from rtflite import LibreOfficeConverter
-try:
-    converter = LibreOfficeConverter()
-except FileNotFoundError:
-    converter = None
-    print("Warning: LibreOffice not found. PDF conversion will be skipped.")
+converter = LibreOfficeConverter()
 ```
 
 ```{python}
@@ -64,7 +60,7 @@ output_files = study_plan_to_ae_summary(study_plan)
 #| echo: false
 for file in output_files:
     if converter:
-    converter.convert(file, output_dir="docs/pdf/", format="pdf", overwrite=True)
+        converter.convert(file, output_dir="docs/pdf/", format="pdf", overwrite=True)
 ```
 
 

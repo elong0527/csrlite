@@ -54,7 +54,7 @@ output_files = study_plan_to_ae_listing(study_plan)
 #| echo: false
 for file in output_files:
     if converter:
-    converter.convert(file, output_dir="docs/pdf/", format="pdf", overwrite=True)
+        converter.convert(file, output_dir="docs/pdf/", format="pdf", overwrite=True)
 ```
 
 ### week12_ser

@@ -5,7 +5,7 @@ study:
   name: "XYZ123"
   title: "Phase III Study of Drug X vs Placebo"
   template:
-    - organization.yaml
+    - ../../yaml/organization.yaml
 
 # Analysis Plans - Using metalite-style condensed format
 plans:
@@ -101,5 +101,6 @@ parameter:
 
 data:
   - name: adsl 
-    path: ../../data/adsl.parquet
+    path: ../../../data/adsl.parquet
   - name: adae
+    path: ../../../data/adae.parquet

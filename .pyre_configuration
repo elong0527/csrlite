@@ -3,6 +3,6 @@
     "src"
   ],
   "search_path": [
-    "C:\\Users\\DragonRider\\AppData\\Local\\Programs\\Python\\Python311"
+    ".venv/lib/python3.14/site-packages"
   ]
 }
