@@ -8,7 +8,7 @@ import polars as pl
 from tlfyaml.ae.ae_listing import study_plan_to_ae_listing
 from tlfyaml.ae.ae_specific import study_plan_to_ae_specific
 from tlfyaml.ae.ae_summary import study_plan_to_ae_summary
-from tlfyaml.disposition.disposition import study_plan_to_disposition
+from tlfyaml.disposition.disposition import study_plan_to_disposition_summary
 
 
 class TestOutputPaths(unittest.TestCase):
@@ -126,7 +126,7 @@ class TestOutputPaths(unittest.TestCase):
 
         self.mock_plan.get_plan_df.return_value = pl.DataFrame(
             {
-                "analysis": ["disposition"],
+                "analysis": ["disposition_summary"],
                 "population": ["pop1"],
                 "observation": ["obs1"],
                 "parameter": ["param1"],
@@ -135,10 +135,10 @@ class TestOutputPaths(unittest.TestCase):
             }
         )
 
-        output_files = study_plan_to_disposition(self.mock_plan)
+        output_files = study_plan_to_disposition_summary(self.mock_plan)
 
         self.assertEqual(len(output_files), 1)
         self.assertEqual(
             Path(output_files[0]),
-            Path("custom/output/dir/disposition_pop1_grp1.rtf"),
+            Path("custom/output/dir/disposition_summary_pop1_grp1.rtf"),
         )
