@@ -14,6 +14,8 @@ class TestUtils(unittest.TestCase):
         res_pop, res_obs = apply_common_filters(pop, obs, None, None, None)
 
         self.assertTrue(res_pop.equals(pop))
+        self.assertTrue(res_pop.equals(pop))
+        self.assertIsNotNone(res_obs)
         self.assertTrue(res_obs.equals(obs))
 
     def test_apply_common_filters_population_filter(self) -> None:
@@ -25,6 +27,8 @@ class TestUtils(unittest.TestCase):
 
         expected_pop = pop.filter(pl.col("group") == "A")
         self.assertTrue(res_pop.equals(expected_pop))
+        self.assertTrue(res_pop.equals(expected_pop))
+        self.assertIsNotNone(res_obs)
         self.assertTrue(
             res_obs.equals(obs)
         )  # Observation not filtered by population filter directly in this function
@@ -37,6 +41,8 @@ class TestUtils(unittest.TestCase):
 
         expected_obs = obs.filter(pl.col("val") > 15)
         self.assertTrue(res_pop.equals(pop))
+        self.assertTrue(res_pop.equals(pop))
+        self.assertIsNotNone(res_obs)
         self.assertTrue(res_obs.equals(expected_obs))
 
     def test_apply_common_filters_parameter_filter(self) -> None:
@@ -47,6 +53,8 @@ class TestUtils(unittest.TestCase):
 
         expected_obs = obs.filter(pl.col("param") == "X")
         self.assertTrue(res_pop.equals(pop))
+        self.assertTrue(res_pop.equals(pop))
+        self.assertIsNotNone(res_obs)
         self.assertTrue(res_obs.equals(expected_obs))
 
     def test_apply_common_filters_all_filters(self) -> None:
@@ -59,4 +67,6 @@ class TestUtils(unittest.TestCase):
         expected_obs = obs.filter((pl.col("val") > 0) & (pl.col("param") == "X"))
 
         self.assertTrue(res_pop.equals(expected_pop))
+        self.assertTrue(res_pop.equals(expected_pop))
+        self.assertIsNotNone(res_obs)
         self.assertTrue(res_obs.equals(expected_obs))
