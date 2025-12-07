@@ -167,7 +167,7 @@ def disposition_ard(
     """
     Generate ARD for Summary Table.
     """
-    
+
     pop_var_name = "Enrolled"
     # Unpack variables
     ds_var_name, _ = ds_term
@@ -226,10 +226,8 @@ def disposition_ard(
 
     # Discontinued Subjects by Reason
     # We filter where ds_var_name == "Discontinued"
-    filtered_for_reason = population_filtered.filter(
-        pl.col(ds_var_name) == "Discontinued"
-    )
-    
+    filtered_for_reason = population_filtered.filter(pl.col(ds_var_name) == "Discontinued")
+
     n_dist_reason_counts = count_subject_with_observation(
         population=population_filtered,
         observation=filtered_for_reason,
@@ -246,7 +244,7 @@ def disposition_ard(
         pl.col("n_pct_subj_fmt").cast(pl.String).alias("__value__"),
     ).sort("__index__")
 
-    # Missing Subjects 
+    # Missing Subjects
     n_missing_counts = count_subject(
         population=population_filtered.filter(pl.col(dist_reason_var_name).is_null()),
         id=id_var_name,
@@ -260,8 +258,7 @@ def disposition_ard(
         pl.col(group_var_name).cast(pl.String).alias("__group__"),
         pl.col("n_subj_pop").cast(pl.String).alias("__value__"),
     )
-    
-    
+
     return pl.concat([n_pop, n_status, n_dist_reason, n_missing])
 
 
@@ -300,7 +297,7 @@ def disposition_rtf(
         col_widths = [2.5] + [1] * (n_cols - 1)
     else:
         col_widths = col_rel_width
-    
+
     return create_ae_rtf_table(
         df=df,
         col_header_1=col_header_1,

@@ -38,8 +38,8 @@ class TestDispositionArd(unittest.TestCase):
                     "Discontinued",
                     "Completed",
                     "Completed",
-                    "Ongoing",      # New case: Ongoing
-                    "Discontinued", # New case: Discontinued with Null Reason
+                    "Ongoing",  # New case: Ongoing
+                    "Discontinued",  # New case: Discontinued with Null Reason
                 ],
                 "DCREASCD": [
                     None,
@@ -48,8 +48,8 @@ class TestDispositionArd(unittest.TestCase):
                     "Screening Failure",
                     None,
                     None,
-                    None,           # Ongoing has Null reason
-                    None,           # Discontinued has Null reason (Missing)
+                    None,  # Ongoing has Null reason
+                    None,  # Discontinued has Null reason (Missing)
                 ],
             }
         ).with_columns(
@@ -81,7 +81,7 @@ class TestDispositionArd(unittest.TestCase):
         self.assertIn("Treatment A", groups)
         self.assertIn("Treatment B", groups)
         self.assertIn("Total", groups)
-        
+
         # Verify specific values
         # Check "Ongoing" presence (Subject 07 in Treatment A)
         ongoing_row = ard.filter(
@@ -101,13 +101,13 @@ class TestDispositionArd(unittest.TestCase):
             total=True,
             missing_group="error",
         )
-        
+
         # Subject 08 is Discontinued with Null Reason in Treatment B
         missing_row = ard.filter(
             (pl.col("__index__") == "Missing") & (pl.col("__group__") == "Treatment B")
         )
         self.assertFalse(missing_row.is_empty(), "Missing reason row should exist for Treatment B")
-        
+
         # Make sure "Completed" subjects (Null reason) are NOT counted as missing
         # Subject 01, 02 are Completed in Treatment A, DCREASCD is Null.
         # If logic is wrong, Missing for Treatment A might be non-zero (or higher than expected)
@@ -121,20 +121,16 @@ class TestDispositionArd(unittest.TestCase):
         # 06 (A): Completed, Null
         # 07 (A): Ongoing, Null
         # 08 (B): Discontinued, Null
-        
+
         # Treatment A Discontinued: 0. Missing should be 0 or row not present/0 value?
-        # Actually count_subject usually returns 0 if total=True and no matches? 
+        # Actually count_subject usually returns 0 if total=True and no matches?
         # Wait, count_subject returns counts for all groups in population/group column.
-        # If count is 0, it might be present as "0". 
+        # If count is 0, it might be present as "0".
         missing_row_a = ard.filter(
             (pl.col("__index__") == "Missing") & (pl.col("__group__") == "Treatment A")
         )
-        
-        val = (
-            missing_row_a.select("__value__").item()
-            if not missing_row_a.is_empty()
-            else "0"
-        )
+
+        val = missing_row_a.select("__value__").item() if not missing_row_a.is_empty() else "0"
         # Since we use count_subject, it formats as n (%).
         # If 0, it should be "0 (  0.0)" or similar.
         # But crucially, it shouldn't be 2 or 3 (the number of completed/ongoing).
@@ -142,7 +138,6 @@ class TestDispositionArd(unittest.TestCase):
             "0" in val or val == "0",
             f"Treatment A should have 0 missing reasons, got {val}",
         )
-
 
     def test_disposition_ard_no_group(self) -> None:
         """Test ARD generation without group variable."""
