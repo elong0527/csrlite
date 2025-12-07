@@ -345,7 +345,7 @@ class StudyPlan:
             logger.info(f"\nAnalysis Plans:\n{df}")
 
     def __str__(self) -> str:
-        study_name = self.study_data.get("study", Dict[str, Any]()).get("name", "Unknown")
+        study_name = self.study_data.get("study", {}).get("name", "Unknown")
         condensed_plans = len(self.study_data.get("plans", []))
         individual_analyses = len(self.get_plan_df())
         return (
