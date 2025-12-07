@@ -124,7 +124,8 @@ def count_summary_data(
             .to_list()
         )
         raise ValueError(
-            f"Some '{id}' values in the observation DataFrame are not present in the population: {missing_ids}"
+            f"Some '{id}' values in the observation DataFrame are not present in the population: "
+            f"{missing_ids}"
         )
 
     df_pop = count_subject(
@@ -171,9 +172,7 @@ def count_summary_data(
     df_obs = pl.concat(all_levels_df, how="diagonal")
 
     # Calculate percentage
-    df_obs = df_obs.with_columns(
-        pct_subj=(pl.col("n_subj") / pl.col("n_subj_pop") * 100)
-    )
+    df_obs = df_obs.with_columns(pct_subj=(pl.col("n_subj") / pl.col("n_subj_pop") * 100))
 
     return df_obs
 
@@ -205,19 +204,14 @@ def format_summary_table(
     )
 
     if max_n_width is None:
-        max_n_width = (
-            df_fmt.select(pl.col("n_subj").cast(pl.String).str.len_chars().max()).item()
-        )
+        max_n_width = df_fmt.select(pl.col("n_subj").cast(pl.String).str.len_chars().max()).item()
 
     max_pct_width = 3 if pct_digit == 0 else 4 + pct_digit
 
     df_fmt = df_fmt.with_columns(
         [
             pl.col("pct_subj_fmt").str.pad_start(max_pct_width, " "),
-            pl.col("n_subj")
-            .cast(pl.String)
-            .str.pad_start(max_n_width, " ")
-            .alias("n_subj_fmt"),
+            pl.col("n_subj").cast(pl.String).str.pad_start(max_n_width, " ").alias("n_subj_fmt"),
         ]
     ).with_columns(
         n_pct_subj_fmt=pl.concat_str(

@@ -11,11 +11,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 
 import polars as pl
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .yaml_loader import YamlInheritanceLoader
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class Keyword(BaseModel):
@@ -52,9 +52,10 @@ class Group(Keyword):
     variable: str = ""
     level: List[str] = Field(default_factory=list)
     group_label: List[str] = Field(default_factory=list)
-    
+
     # Allow label to be excluded if it conflicts or handled manually
-    
+
+    # pyre-ignore[56]
     @field_validator("group_label", mode="before")
     @classmethod
     def set_group_label(cls, v: Any, info: Any) -> Any:
@@ -63,7 +64,8 @@ class Group(Keyword):
         # unless using model_validator. But here we can rely on standard defaulting or
         # fix it at the registry level like before.
         # Actually, let's keep it simple: if not provided, it's empty.
-        # The original code did: if "group_label" not in item_data: item_data["group_label"] = item_data.get("label", [])
+        # The original code did:
+        # if "group_label" not in item_data: item_data["group_label"] = item_data.get("label", [])
         return v or []
 
 
@@ -75,7 +77,7 @@ class DataSource(BaseModel):
     dataframe: Optional[pl.DataFrame] = Field(default=None, exclude=True)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    
+
 
 class AnalysisPlan(BaseModel):
     """Individual analysis plan specification."""
@@ -99,7 +101,7 @@ class AnalysisPlan(BaseModel):
 
 class KeywordRegistry(BaseModel):
     """Registry for managing keywords."""
-    
+
     populations: Dict[str, Population] = Field(default_factory=dict)
     observations: Dict[str, Observation] = Field(default_factory=dict)
     parameters: Dict[str, Parameter] = Field(default_factory=dict)
@@ -110,19 +112,19 @@ class KeywordRegistry(BaseModel):
         """Load keywords from a dictionary."""
         # We manually load so we can handle the dict-to-list-of-models transformation
         # and the specific logic for defaults.
-        
+
         for item in data.get("population", []):
-            p = Population(**item)
-            self.populations[p.name] = p
-            
+            pop_item = Population(**item)
+            self.populations[pop_item.name] = pop_item
+
         for item in data.get("observation", []):
-            o = Observation(**item)
-            self.observations[o.name] = o
-            
+            obs_item = Observation(**item)
+            self.observations[obs_item.name] = obs_item
+
         for item in data.get("parameter", []):
-            p = Parameter(**item)
-            self.parameters[p.name] = p
-            
+            param_item = Parameter(**item)
+            self.parameters[param_item.name] = param_item
+
         for item in data.get("group", []):
             # Special handling for Group where 'label' might be a list (for group_label)
             # but Keyword.label expects a string.
@@ -132,13 +134,13 @@ class KeywordRegistry(BaseModel):
                 # Remove label from item to avoid validation error on Keyword.label
                 # or set it to a joined string if a label is really needed
                 del item["label"]
-            
-            g = Group(**item)
-            self.groups[g.name] = g
-            
+
+            group_item = Group(**item)
+            self.groups[group_item.name] = group_item
+
         for item in data.get("data", []):
-            d = DataSource(**item)
-            self.data_sources[d.name] = d
+            ds_item = DataSource(**item)
+            self.data_sources[ds_item.name] = ds_item
 
     def get_population(self, name: str) -> Optional[Population]:
         return self.populations.get(name)
@@ -248,8 +250,7 @@ class StudyPlan:
                 logger.info(f"Successfully loaded dataset '{name}' from '{path}'")
             except Exception as e:
                 logger.warning(
-                    f"Could not load dataset '{name}' from '{data_source.path}'. "
-                    f"Reason: {e}"
+                    f"Could not load dataset '{name}' from '{data_source.path}'. Reason: {e}"
                 )
 
     def get_plan_df(self) -> pl.DataFrame:
