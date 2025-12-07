@@ -1,6 +1,6 @@
 {
-  "source_directories": [
-    "src",
-    "tests"
-  ]
+    "source_directories": [
+        "src",
+        "tests"
+    ]
 }
