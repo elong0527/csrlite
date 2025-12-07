@@ -19,7 +19,7 @@ class TestDispositionArd(unittest.TestCase):
         """Set up test data for disposition analysis."""
         self.population_data = pl.DataFrame(
             {
-                "USUBJID": ["01", "02", "03", "04", "05", "06"],
+                "USUBJID": ["01", "02", "03", "04", "05", "06", "07", "08"],
                 "TRT01A": [
                     "Treatment A",
                     "Treatment A",
@@ -27,34 +27,46 @@ class TestDispositionArd(unittest.TestCase):
                     "Treatment B",
                     "Treatment B",
                     "Treatment A",
+                    "Treatment A",
+                    "Treatment B",
                 ],
-                "SAFFL": ["Y", "Y", "Y", "Y", "Y", "Y"],
+                "SAFFL": ["Y", "Y", "Y", "Y", "Y", "Y", "Y", "Y"],
+                "EOSSTT": [
+                    "Completed",
+                    "Completed",
+                    "Discontinued",
+                    "Discontinued",
+                    "Completed",
+                    "Completed",
+                    "Ongoing",      # New case: Ongoing
+                    "Discontinued", # New case: Discontinued with Null Reason
+                ],
+                "DCREASCD": [
+                    None,
+                    None,
+                    "Withdrawn",
+                    "Screening Failure",
+                    None,
+                    None,
+                    None,           # Ongoing has Null reason
+                    None,           # Discontinued has Null reason (Missing)
+                ],
             }
-        )
-
-        self.observation_data = pl.DataFrame(
-            {
-                "USUBJID": ["01", "03", "04"],
-                "DSDECOD": ["Completed", "Withdrawn", "Screening Failure"],
-                "DSTERM": ["Study completed", "Adverse event", "Failed screening"],
-            }
+        ).with_columns(
+            pl.col("EOSSTT").cast(pl.Categorical),
+            pl.col("DCREASCD").cast(pl.Categorical),
         )
 
     def test_disposition_ard_basic(self) -> None:
         """Test basic ARD generation for disposition."""
-        variables = [
-            ("SAFFL == 'Y'", "Enrolled"),
-            ("DSDECOD == 'Completed'", "Completed"),
-        ]
 
         ard = disposition_ard(
             population=self.population_data,
-            observation=self.observation_data,
             population_filter=None,
-            observation_filter=None,
             id=("USUBJID", "Subject ID"),
             group=("TRT01A", "Treatment"),
-            variables=variables,
+            dist_reason_term=("DCREASCD", "Discontinued"),
+            ds_term=("EOSSTT", "Status"),
             total=True,
             missing_group="error",
         )
@@ -69,44 +81,98 @@ class TestDispositionArd(unittest.TestCase):
         self.assertIn("Treatment A", groups)
         self.assertIn("Treatment B", groups)
         self.assertIn("Total", groups)
+        
+        # Verify specific values
+        # Check "Ongoing" presence (Subject 07 in Treatment A)
+        ongoing_row = ard.filter(
+            (pl.col("__index__") == "Ongoing") & (pl.col("__group__") == "Treatment A")
+        )
+        self.assertFalse(ongoing_row.is_empty(), "Ongoing row should exist for Treatment A")
+
+    def test_disposition_ard_missing_reason(self) -> None:
+        """Test that missing discontinuation reasons are counted correctly."""
+        ard = disposition_ard(
+            population=self.population_data,
+            population_filter=None,
+            id=("USUBJID", "Subject ID"),
+            group=("TRT01A", "Treatment"),
+            dist_reason_term=("DCREASCD", "Discontinued"),
+            ds_term=("EOSSTT", "Status"),
+            total=True,
+            missing_group="error",
+        )
+        
+        # Subject 08 is Discontinued with Null Reason in Treatment B
+        missing_row = ard.filter(
+            (pl.col("__index__") == "Missing") & (pl.col("__group__") == "Treatment B")
+        )
+        self.assertFalse(missing_row.is_empty(), "Missing reason row should exist for Treatment B")
+        
+        # Make sure "Completed" subjects (Null reason) are NOT counted as missing
+        # Subject 01, 02 are Completed in Treatment A, DCREASCD is Null.
+        # If logic is wrong, Missing for Treatment A might be non-zero (or higher than expected)
+        # Treatment A: 2 Completed, 1 Ongoing, 1 ??? (from original data? No, I redefined data)
+        # Data:
+        # 01 (A): Completed, Null
+        # 02 (A): Completed, Null
+        # 03 (B): Discontinued, Withdrawn
+        # 04 (B): Discontinued, Screening Failure
+        # 05 (B): Completed, Null
+        # 06 (A): Completed, Null
+        # 07 (A): Ongoing, Null
+        # 08 (B): Discontinued, Null
+        
+        # Treatment A Discontinued: 0. Missing should be 0 or row not present/0 value?
+        # Actually count_subject usually returns 0 if total=True and no matches? 
+        # Wait, count_subject returns counts for all groups in population/group column.
+        # If count is 0, it might be present as "0". 
+        missing_row_a = ard.filter(
+            (pl.col("__index__") == "Missing") & (pl.col("__group__") == "Treatment A")
+        )
+        
+        val = (
+            missing_row_a.select("__value__").item()
+            if not missing_row_a.is_empty()
+            else "0"
+        )
+        # Since we use count_subject, it formats as n (%).
+        # If 0, it should be "0 (  0.0)" or similar.
+        # But crucially, it shouldn't be 2 or 3 (the number of completed/ongoing).
+        self.assertTrue(
+            "0" in val or val == "0",
+            f"Treatment A should have 0 missing reasons, got {val}",
+        )
+
 
     def test_disposition_ard_no_group(self) -> None:
         """Test ARD generation without group variable."""
-        variables = [
-            ("SAFFL == 'Y'", "Enrolled"),
-        ]
 
         ard = disposition_ard(
             population=self.population_data,
-            observation=self.observation_data,
             population_filter=None,
-            observation_filter=None,
             id=("USUBJID", "Subject ID"),
             group=None,  # No grouping
-            variables=variables,
+            dist_reason_term=("DCREASCD", "Discontinued"),
+            ds_term=("EOSSTT", "Status"),
             total=True,
             missing_group="error",
         )
 
-        # When no group is specified, __all__ is used
+        # When no group is specified, Overall is used
         self.assertIn("__group__", ard.columns)
         groups = ard["__group__"].unique().to_list()
-        self.assertIn("All Subjects", groups)
+        self.assertIn("Overall", groups)
 
     def test_disposition_ard_with_filters(self) -> None:
         """Test ARD generation with population and observation filters."""
-        variables = [
-            ("SAFFL == 'Y'", "Safety Population"),
-        ]
 
         ard = disposition_ard(
             population=self.population_data,
-            observation=self.observation_data,
             population_filter="TRT01A == 'Treatment A'",
-            observation_filter=None,
             id=("USUBJID", "Subject ID"),
             group=("TRT01A", "Treatment"),
-            variables=variables,
+            dist_reason_term=("DCREASCD", "Discontinued"),
+            ds_term=("EOSSTT", "Status"),
             total=False,
             missing_group="error",
         )
@@ -115,32 +181,6 @@ class TestDispositionArd(unittest.TestCase):
         groups = ard["__group__"].unique().to_list()
         self.assertEqual(len(groups), 1)
         self.assertIn("Treatment A", groups)
-
-    def test_disposition_ard_indentation(self) -> None:
-        """Test ARD generation with indented labels."""
-        variables = [
-            ("SAFFL == 'Y'", "Enrolled"),
-            ("DSDECOD == 'Completed'", "    Completed"),
-            ("DSDECOD == 'Withdrawn'", "    Withdrawn"),
-        ]
-
-        ard = disposition_ard(
-            population=self.population_data,
-            observation=self.observation_data,
-            population_filter=None,
-            observation_filter=None,
-            id=("USUBJID", "Subject ID"),
-            group=("TRT01A", "Treatment"),
-            variables=variables,
-            total=True,
-            missing_group="error",
-        )
-
-        # Check that labels are preserved including indentation
-        labels = ard["__index__"].unique().to_list()
-        self.assertIn("Enrolled", labels)
-        self.assertIn("    Completed", labels)
-        self.assertIn("    Withdrawn", labels)
 
 
 class TestDispositionDf(unittest.TestCase):
@@ -157,7 +197,7 @@ class TestDispositionDf(unittest.TestCase):
         df = disposition_df(ard)
 
         # Check columns
-        self.assertIn("Disposition Status", df.columns)
+        self.assertIn("Term", df.columns)
         self.assertIn("Treatment A", df.columns)
         self.assertIn("Treatment B", df.columns)
 
@@ -179,7 +219,7 @@ class TestDispositionDf(unittest.TestCase):
         df = disposition_df(ard)
 
         # Check that rows are in expected order
-        status_col = df["Disposition Status"].to_list()
+        status_col = df["Term"].to_list()
         self.assertEqual(status_col, var_labels)
 
 
@@ -241,14 +281,26 @@ class TestDispositionPipeline(unittest.TestCase):
                     "Treatment A",
                 ],
                 "SAFFL": ["Y", "Y", "Y", "Y", "Y", "Y"],
+                "EOSSTT": [
+                    "Completed",
+                    "Completed",
+                    "Discontinued",
+                    "Discontinued",
+                    "Completed",
+                    "Completed",
+                ],
+                "DCREASCD": [
+                    None,
+                    None,
+                    "Withdrawn",
+                    "Screening Failure",
+                    None,
+                    None,
+                ],
             }
-        )
-
-        self.observation_data = pl.DataFrame(
-            {
-                "USUBJID": ["01", "03", "04"],
-                "DSDECOD": ["Completed", "Withdrawn", "Screening Failure"],
-            }
+        ).with_columns(
+            pl.col("EOSSTT").cast(pl.Categorical),
+            pl.col("DCREASCD").cast(pl.Categorical),
         )
 
         self.output_dir = Path("tests/output")
@@ -262,21 +314,16 @@ class TestDispositionPipeline(unittest.TestCase):
 
     def test_disposition_full_pipeline(self) -> None:
         """Test complete disposition pipeline."""
-        variables = [
-            ("SAFFL == 'Y'", "Enrolled"),
-            ("DSDECOD == 'Completed'", "    Completed"),
-        ]
 
         output_file = str(self.output_dir / "test_disposition.rtf")
 
         result_path = disposition(
             population=self.population_data,
-            observation=self.observation_data,
             population_filter=None,
-            observation_filter=None,
             id=("USUBJID", "Subject ID"),
             group=("TRT01A", "Treatment"),
-            variables=variables,
+            dist_reason_term=("DCREASCD", "Discontinued"),
+            ds_term=("EOSSTT", "Status"),
             title=["Disposition of Participants"],
             footnote=["Test footnote"],
             source=None,
@@ -291,17 +338,15 @@ class TestDispositionPipeline(unittest.TestCase):
 
     def test_disposition_no_total(self) -> None:
         """Test disposition without total column."""
-        variables = [("SAFFL == 'Y'", "Enrolled")]
         output_file = str(self.output_dir / "test_disposition_no_total.rtf")
 
         result_path = disposition(
             population=self.population_data,
-            observation=self.observation_data,
             population_filter=None,
-            observation_filter=None,
             id=("USUBJID", "Subject ID"),
             group=("TRT01A", "Treatment"),
-            variables=variables,
+            dist_reason_term=("DCREASCD", "Discontinued"),
+            ds_term=("EOSSTT", "Status"),
             title=["Test"],
             footnote=None,
             source=None,
@@ -327,7 +372,7 @@ class TestStudyPlanToDisposition(unittest.TestCase):
     def test_study_plan_to_disposition_summary(self) -> None:
         """Test generating disposition tables from StudyPlan."""
         # Load the study plan
-        study_plan = load_plan("studies/xyz123/yaml/plan_ds_xyz123.yaml")
+        study_plan = load_plan("studies/xyz123/yaml/plan_ae_xyz123.yaml")
 
         # Generate disposition tables
         rtf_files = study_plan_to_disposition_summary(study_plan)

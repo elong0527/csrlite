@@ -1,4 +1,6 @@
 population:
+  - name: enrolled
+    label: "All Enrolled Participants"
   - name: apat
     label: "All Participants as Treated"
   - name: itt

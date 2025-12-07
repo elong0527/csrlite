@@ -4,11 +4,11 @@ import polars as pl
 
 def apply_common_filters(
     population: pl.DataFrame,
-    observation: pl.DataFrame,
+    observation: pl.DataFrame | None,
     population_filter: str | None,
     observation_filter: str | None,
     parameter_filter: str | None = None,
-) -> tuple[pl.DataFrame, pl.DataFrame]:
+) -> tuple[pl.DataFrame, pl.DataFrame | None]:
     """
     Apply standard population, observation, and parameter filters.
 
@@ -23,11 +23,11 @@ def apply_common_filters(
 
     # Apply observation filter
     observation_filtered = observation
-    if observation_filter:
+    if observation_filter and observation_filtered is not None:
         observation_filtered = observation_filtered.filter(pl.sql_expr(observation_filter))
 
     # Apply parameter filter
-    if parameter_filter:
+    if parameter_filter and observation_filtered is not None:
         observation_filtered = observation_filtered.filter(pl.sql_expr(parameter_filter))
 
     return population_filtered, observation_filtered

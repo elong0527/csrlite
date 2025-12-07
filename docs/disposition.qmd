@@ -1,0 +1,140 @@
+---
+title: "Disposition Analysis"
+---
+
+::: {.callout-note}
+## Objectives
+
+This guide demonstrates disposition analysis showing subject enrollment and study completion status. For design philosophy and architecture details, see [ae_summary.qmd](ae_summary.qmd).
+:::
+
+## Setup
+
+```{python}
+#| message: false
+import sys
+from pathlib import Path
+import polars as pl
+
+sys.path.insert(0, 'src')
+
+from rtflite import LibreOfficeConverter
+converter = LibreOfficeConverter()
+```
+
+```{python}
+from csrlite import load_plan, study_plan_to_disposition_summary
+from csrlite.disposition.disposition import disposition_ard, disposition_df, disposition_rtf, disposition
+```
+
+## What's Different?
+
+**Disposition Analysis** shows subject enrollment status, study completion, and discontinuation reasons in a hierarchical table format with indented subcategories.
+
+## StudyPlan-Driven Workflow
+
+```{python}
+study_plan = load_plan("studies/xyz123/yaml/plan_ae_xyz123.yaml")
+study_plan.get_plan_df().filter(pl.col("analysis") == "disposition_summary")
+```
+
+```{python}
+output_files = study_plan_to_disposition_summary(study_plan)
+```
+
+```{python}
+#| echo: false
+for file in output_files:
+    converter.convert(file, output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+### Disposition Summary
+
+<embed src="pdf/disposition_summary.pdf" style="width:100%; height:600px" type="application/pdf">
+
+## Complete Pipeline
+
+```{python}
+adsl = pl.read_parquet("data/adsl.parquet")
+
+disposition(
+    population=adsl,
+    population_filter=None,
+    id=("USUBJID", "Subject ID"),
+    group=("TRT01A", "Treatment Group"),
+    ds_term=("EOSSTT", "Disposition Status"),
+    dist_reason_term=("DCREASCD", "Discontinued Reason"),
+    title=[
+        "Disposition Summary Table",
+        "(Intent-to-Treat Population)"
+    ],
+    footnote=["Percentages are based on the number of enrolled participants."],
+    source=None,
+    output_file="studies/xyz123/rtf/disposition.rtf",
+    total=True,
+    missing_group="error"
+)
+```
+
+```{python}
+#| echo: false
+converter.convert(f"{study_plan.output_dir}/disposition.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+<embed src="pdf/disposition.pdf" style="width:100%; height:600px" type="application/pdf">
+
+## Step-by-Step Pipeline
+
+### Step 1: Generate ARD
+
+**Key Parameters:**
+- `ds_term`: Tuple `(column, label)` for status (Completed, Ongoing, Discontinued)
+- `dist_reason_term`: Tuple `(column, label)` for discontinuation reason
+
+```{python}
+_ard = disposition_ard(
+    population=adsl,
+    population_filter=None,
+    id=("USUBJID", "Subject ID"),
+    group=("TRT01A", "Treatment Group"),
+    ds_term=("EOSSTT", "Disposition Status"),
+    dist_reason_term=("DCREASCD", "Discontinued Reason"),
+    total=True,
+    missing_group="error"
+)
+
+_ard
+```
+
+**Output Structure:** Long format with `__index__`, `__group__`, `__value__` columns.
+
+### Step 2: Transform to Display Format
+
+```{python}
+_df = disposition_df(_ard)
+_df
+```
+
+**Output Structure:** Wide format with "Disposition Status" column showing statuses and treatment groups as columns.
+
+### Step 3: Generate RTF Output
+
+```{python}
+disposition_rtf(
+    _df,
+    title=[
+        "Disposition Summary Table",
+        "(Intent-to-Treat Population)"
+    ],
+    footnote=["Percentages are based on the number of enrolled participants."],
+    source=None,
+    col_rel_width=[2.5, 1, 1, 1, 1]
+).write_rtf("studies/xyz123/rtf/disposition_step.rtf")
+```
+
+```{python}
+#| echo: false
+converter.convert(f"{study_plan.output_dir}/disposition_step.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+<embed src="pdf/disposition_step.pdf" style="width:100%; height:600px" type="application/pdf">

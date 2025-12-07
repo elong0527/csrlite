@@ -71,6 +71,8 @@ def ae_listing_ard(
         parameter_filter=parameter_filter,
     )
 
+    assert observation_to_filter is not None
+
     # Filter observation to include only subjects in filtered population
     observation_filtered = observation_to_filter.filter(
         pl.col(id_var_name).is_in(population_filtered[id_var_name].to_list())

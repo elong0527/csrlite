@@ -16,7 +16,7 @@ import polars as pl
 from rtflite import RTFDocument
 
 from ..ae.ae_utils import create_ae_rtf_table
-from ..common.count import count_subject_with_observation
+from ..common.count import count_subject, count_subject_with_observation
 from ..common.parse import StudyPlanParser
 from ..common.plan import StudyPlan
 from ..common.utils import apply_common_filters
@@ -26,18 +26,21 @@ def study_plan_to_disposition_summary(
     study_plan: StudyPlan,
 ) -> list[str]:
     """
-    Generate Disposition Table 1.1 RTF outputs for all analyses defined in StudyPlan.
+    Generate Disposition Summary Table outputs for all analyses defined in StudyPlan.
     """
     # Meta data
     analysis_type = "disposition_summary"
     output_dir = study_plan.output_dir
+    title = "Disposition of Participants"
     footnote = ["Percentages are based on the number of enrolled participants."]
     source = None
 
     population_df_name = "adsl"
-    observation_df_name = "ds"  # As per plan_ds_xyz123.yaml
 
     id = ("USUBJID", "Subject ID")
+    ds_term = ("EOSSTT", "Disposition Status")
+    dist_reason_term = ("DCREASCD", "Discontinued Reason")
+
     total = True
     missing_group = "error"
 
@@ -57,32 +60,14 @@ def study_plan_to_disposition_summary(
 
     for row in disp_plans.iter_rows(named=True):
         population = row["population"]
-        observation = row.get("observation")
-        parameter = row["parameter"]
         group = row.get("group")
-        title_text = row.get(
-            "title", "Disposition of Participants"
-        )  # Allow title override from plan if we supported it in parser, else default
+        title_text = title
 
         # Get datasets
-        population_df, observation_df = parser.get_datasets(population_df_name, observation_df_name)
+        (population_df,) = parser.get_datasets(population_df_name)
 
         # Get filters
         population_filter = parser.get_population_filter(population)
-        obs_filter = parser.get_observation_filter(observation)
-
-        # Get parameters with indent levels
-        param_names, param_filters, param_labels, param_indents = parser.get_parameter_info(
-            parameter
-        )
-
-        # Apply indentation to labels
-        indented_labels = []
-        for label, indent_level in zip(param_labels, param_indents):
-            indent_str = "    " * indent_level  # 4 spaces per indent level
-            indented_labels.append(f"{indent_str}{label}")
-
-        variables_list = list(zip(param_filters, indented_labels))
 
         # Get group info (optional)
         if group is not None:
@@ -106,12 +91,11 @@ def study_plan_to_disposition_summary(
 
         rtf_path = disposition(
             population=population_df,
-            observation=observation_df,
             population_filter=population_filter,
-            observation_filter=obs_filter,
             id=id,
             group=group_tuple,
-            variables=variables_list,
+            ds_term=ds_term,
+            dist_reason_term=dist_reason_term,
             title=title_parts,
             footnote=footnote,
             source=source,
@@ -126,12 +110,11 @@ def study_plan_to_disposition_summary(
 
 def disposition(
     population: pl.DataFrame,
-    observation: pl.DataFrame,
     population_filter: str | None,
-    observation_filter: str | None,
     id: tuple[str, str],
     group: tuple[str, str] | None,
-    variables: list[tuple[str, str]],
+    ds_term: tuple[str, str],
+    dist_reason_term: tuple[str, str],
     title: list[str],
     footnote: list[str] | None,
     source: list[str] | None,
@@ -141,17 +124,16 @@ def disposition(
     missing_group: str = "error",
 ) -> str:
     """
-    Complete Disposition Table 1.1 pipeline wrapper.
+    Complete Disposition Summary Table pipeline wrapper.
     """
     # Step 1: Generate ARD
     ard = disposition_ard(
         population=population,
-        observation=observation,
         population_filter=population_filter,
-        observation_filter=observation_filter,
         id=id,
         group=group,
-        variables=variables,
+        ds_term=ds_term,
+        dist_reason_term=dist_reason_term,
         total=total,
         missing_group=missing_group,
     )
@@ -174,85 +156,113 @@ def disposition(
 
 def disposition_ard(
     population: pl.DataFrame,
-    observation: pl.DataFrame,
     population_filter: str | None,
-    observation_filter: str | None,
     id: tuple[str, str],
     group: tuple[str, str] | None,
-    variables: list[tuple[str, str]],
+    ds_term: tuple[str, str],
+    dist_reason_term: tuple[str, str],
     total: bool,
     missing_group: str,
 ) -> pl.DataFrame:
     """
-    Generate ARD for Disposition Table 1.1.
+    Generate ARD for Summary Table.
     """
+    
+    pop_var_name = "Enrolled"
+    # Unpack variables
+    ds_var_name, _ = ds_term
+    dist_reason_var_name, _ = dist_reason_term
     id_var_name, _ = id
 
-    # Handle optional group
-    if group is not None:
+    # Apply common filters
+    population_filtered, _ = apply_common_filters(
+        population=population,
+        observation=None,
+        population_filter=population_filter,
+        observation_filter=None,
+    )
+
+    if group:
         group_var_name, _ = group
     else:
-        # Create a dummy group column for overall counts
-        group_var_name = "__all__"
-        population = population.with_columns(pl.lit("All Subjects").alias(group_var_name))
-        observation = observation.with_columns(pl.lit("All Subjects").alias(group_var_name))
-        total = False  # No need for total column when there's only one group
-
-    # Apply common filters
-    population_filtered, observation_to_filter = apply_common_filters(
-        population=population,
-        observation=observation,
-        population_filter=population_filter,
-        observation_filter=observation_filter,
-    )
-
-    # For each parameter, we create an "observation" dataset and use
-    # count_subject_with_observation. This approach works for both ADSL-based
-    # filters (e.g., "Enrolled") and DS-based filters (e.g., "Discontinued")
-
-    results = []
-
-    for var_filter, var_label in variables:
-        # Try to apply the filter to population first, then observation
-        # This handles both ADSL-based and DS-based parameter filters
-        try:
-            target_obs = population_filtered.filter(pl.sql_expr(var_filter))
-        except Exception:
-            target_obs = observation_to_filter.filter(pl.sql_expr(var_filter))
-
-        # Add the parameter label as a variable for counting
-        target_obs = target_obs.with_columns(pl.lit(var_label).alias("__index__"))
-
-        # Use count_subject_with_observation to get n (%) for each group
-        counts = count_subject_with_observation(
-            population=population_filtered,
-            observation=target_obs,
-            id=id_var_name,
-            group=group_var_name,
-            variable="__index__",
-            total=total,
-            missing_group=missing_group,
+        # Create dummy group for overall analysis
+        group_var_name = "Overall"
+        population_filtered = population_filtered.with_columns(
+            pl.lit("Overall").alias(group_var_name)
         )
 
-        results.append(
-            counts.select(
-                pl.col("__index__"),
-                pl.col(group_var_name).alias("__group__"),
-                pl.col("n_pct_subj_fmt").alias("__value__"),
-            )
-        )
-
-    # Combine all results
-    ard = pl.concat(results)
-
-    # Sort by the order of variables in the list
-    # Create an Enum for __index__
-    var_labels = [label for _, label in variables]
-    ard = ard.with_columns(pl.col("__index__").cast(pl.Enum(var_labels))).sort(
-        "__index__", "__group__"
+    # Enrolled Subjects
+    n_pop_counts = count_subject(
+        population=population_filtered,
+        id=id_var_name,
+        group=group_var_name,
+        total=total,
+        missing_group=missing_group,
     )
 
-    return ard
+    n_pop = n_pop_counts.select(
+        pl.lit(pop_var_name).alias("__index__"),
+        pl.col(group_var_name).cast(pl.String).alias("__group__"),
+        pl.col("n_subj_pop").cast(pl.String).alias("__value__"),
+    )
+
+    # Disposition Status Counts (Completed, Ongoing, Discontinued, etc.)
+    # We count subjects by their status in ds_var_name
+    n_status_counts = count_subject_with_observation(
+        population=population_filtered,
+        observation=population_filtered,
+        id=id_var_name,
+        group=group_var_name,
+        variable=ds_var_name,
+        total=total,
+        missing_group=missing_group,
+    )
+
+    n_status = n_status_counts.select(
+        pl.col(ds_var_name).cast(pl.String).alias("__index__"),
+        pl.col(group_var_name).cast(pl.String).alias("__group__"),
+        pl.col("n_pct_subj_fmt").cast(pl.String).alias("__value__"),
+    )
+
+    # Discontinued Subjects by Reason
+    # We filter where ds_var_name == "Discontinued"
+    filtered_for_reason = population_filtered.filter(
+        pl.col(ds_var_name) == "Discontinued"
+    )
+    
+    n_dist_reason_counts = count_subject_with_observation(
+        population=population_filtered,
+        observation=filtered_for_reason,
+        id=id_var_name,
+        group=group_var_name,
+        variable=dist_reason_var_name,
+        total=total,
+        missing_group=missing_group,
+    )
+
+    n_dist_reason = n_dist_reason_counts.select(
+        (pl.lit("    ") + pl.col(dist_reason_var_name).cast(pl.String)).alias("__index__"),
+        pl.col(group_var_name).cast(pl.String).alias("__group__"),
+        pl.col("n_pct_subj_fmt").cast(pl.String).alias("__value__"),
+    ).sort("__index__")
+
+    # Missing Subjects 
+    n_missing_counts = count_subject(
+        population=population_filtered.filter(pl.col(dist_reason_var_name).is_null()),
+        id=id_var_name,
+        group=group_var_name,
+        total=total,
+        missing_group=missing_group,
+    )
+
+    n_missing = n_missing_counts.select(
+        pl.lit("Missing").alias("__index__"),
+        pl.col(group_var_name).cast(pl.String).alias("__group__"),
+        pl.col("n_subj_pop").cast(pl.String).alias("__value__"),
+    )
+    
+    
+    return pl.concat([n_pop, n_status, n_dist_reason, n_missing])
 
 
 def disposition_df(ard: pl.DataFrame) -> pl.DataFrame:
@@ -260,10 +270,11 @@ def disposition_df(ard: pl.DataFrame) -> pl.DataFrame:
     Transform ARD to display format.
     """
     # Pivot
+    # Pivot from long to wide format
     df_wide = ard.pivot(index="__index__", on="__group__", values="__value__")
 
-    # Rename index
-    df_wide = df_wide.rename({"__index__": "Disposition Status"})
+    # Rename __index__ to display column name
+    df_wide = df_wide.rename({"__index__": "Term"}).select(pl.col("Term"), pl.exclude("Term"))
 
     return df_wide
 
@@ -289,7 +300,7 @@ def disposition_rtf(
         col_widths = [2.5] + [1] * (n_cols - 1)
     else:
         col_widths = col_rel_width
-
+    
     return create_ae_rtf_table(
         df=df,
         col_header_1=col_header_1,

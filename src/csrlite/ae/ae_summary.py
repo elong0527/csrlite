@@ -258,6 +258,8 @@ def ae_summary_ard(
         observation_filter=observation_filter,
     )
 
+    assert observation_to_filter is not None
+
     # Filter observation data to include only subjects in the filtered population
     # Process all variables in the list
     observation_filtered_list = []
