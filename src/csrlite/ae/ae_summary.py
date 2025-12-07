@@ -21,7 +21,6 @@ from rtflite import RTFDocument
 from ..common.count import count_subject, count_subject_with_observation
 from ..common.parse import StudyPlanParser
 from ..common.plan import StudyPlan
-
 from ..common.rtf import create_rtf_table_n_pct
 from ..common.utils import apply_common_filters
 

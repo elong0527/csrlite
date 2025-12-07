@@ -1,7 +1,7 @@
-import unittest
-from pathlib import Path
 import shutil
 import tempfile
+import unittest
+from pathlib import Path
 
 import polars as pl
 from rtflite import RTFDocument
@@ -49,7 +49,7 @@ class TestRTF(unittest.TestCase):
         self.assertIn("Test Table", content)
 
         self.assertIn("Column 1", content)
-        # Note: RTF content checking is fuzzy because of RTF encoding, but simple strings often appear.
+        # Note: RTF content checking is fuzzy, but simple strings often appear.
 
     def test_create_rtf_table_nested_headers(self) -> None:
         doc = create_rtf_table_n_pct(

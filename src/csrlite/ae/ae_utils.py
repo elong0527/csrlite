@@ -1,3 +1,6 @@
+from typing import Any
+
+
 def get_ae_parameter_title(param: Any, prefix: str = "Participants With") -> str:
     """
     Extract title from parameter for ae_* title generation.
