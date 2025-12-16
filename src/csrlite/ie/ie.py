@@ -62,7 +62,6 @@ def study_plan_to_ie_summary(
 
     for row in ie_plans.iter_rows(named=True):
         population = row["population"]
-        group = row.get("group")
         title_text = title
 
         # Get datasets
@@ -71,15 +70,6 @@ def study_plan_to_ie_summary(
         # Get filters
         population_filter = parser.get_population_filter(population)
 
-        # Get group info (optional)
-        if group is not None:
-            group_var_name, group_labels = parser.get_group_info(group)
-            group_var_label = group_labels[0] if group_labels else group_var_name
-            group_tuple = (group_var_name, group_var_label)
-        else:
-            # When no group specified, use a dummy group column for overall counts
-            group_tuple = ("Overall", "Overall")
-
         # Build title
         title_parts = [title_text]
         pop_kw = study_plan.keywords.populations.get(population)
@@ -87,8 +77,7 @@ def study_plan_to_ie_summary(
             title_parts.append(pop_kw.label)
 
         # Build output filename
-        group_suffix = f"_{group}" if group else ""
-        filename = f"{analysis_type}_{population}{group_suffix}.rtf"
+        filename = f"{analysis_type}_{population}.rtf"
         output_file = str(Path(output_dir) / filename)
 
         rtf_path = ie_summary(
@@ -96,7 +85,6 @@ def study_plan_to_ie_summary(
             observation=observation_df,
             population_filter=population_filter,
             id=id,
-            group=group_tuple,
             title=title_parts,
             footnote=footnote,
             source=source,
@@ -114,7 +102,6 @@ def ie_summary(
     observation: pl.DataFrame,
     population_filter: str | None,
     id: tuple[str, str],
-    group: tuple[str, str],
     title: list[str],
     footnote: list[str] | None,
     source: list[str] | None,
@@ -132,7 +119,6 @@ def ie_summary(
         observation=observation,
         population_filter=population_filter,
         id=id,
-        group=group,
         total=total,
         missing_group=missing_group,
     )
@@ -158,7 +144,6 @@ def ie_summary_ard(
     observation: pl.DataFrame,
     population_filter: str | None,
     id: tuple[str, str],
-    group: tuple[str, str],
     total: bool,
     missing_group: str,
     pop_var_name: str = "Total Subjects Screened",
@@ -167,7 +152,8 @@ def ie_summary_ard(
     Generate ARD for IE Summary Table.
     """
     id_var_name, _ = id
-    group_var_name, _ = group
+    group_var_name = "Overall"
+    total = False
 
     # Apply common filters
     population_filtered, observation_to_filter = apply_common_filters(
@@ -178,6 +164,16 @@ def ie_summary_ard(
     )
 
     assert observation_to_filter is not None
+
+    if group_var_name == "Overall":
+        if "Overall" not in population_filtered.columns:
+            population_filtered = population_filtered.with_columns(
+                pl.lit("Overall").alias("Overall")
+            )
+        if "Overall" not in observation_to_filter.columns:
+            observation_to_filter = observation_to_filter.with_columns(
+                pl.lit("Overall").alias("Overall")
+            )
 
     # Identify screen failures in observation not in population
     # Only if they have AFLAG='Y'
@@ -194,6 +190,9 @@ def ie_summary_ard(
         # We need to construct a population dataframe for these subjects
         # We need the group variable.
         group_col_source = group_var_name
+
+
+
         if group_var_name not in obs_failures.columns:
             # Fallback: Can't determine group.
             # For now, let's try to find it or errors will occur later
@@ -224,12 +223,7 @@ def ie_summary_ard(
         pl.col(id_var_name).is_in(population_filtered[id_var_name])
     )
 
-    if group_var_name == "Overall":
-        if "Overall" not in population_filtered.columns:
-            population_filtered = population_filtered.with_columns(
-                pl.lit("Overall").alias("Overall")
-            )
-        total = False
+
 
     # 1. Total Subjects Screened
     n_pop_counts = count_subject(

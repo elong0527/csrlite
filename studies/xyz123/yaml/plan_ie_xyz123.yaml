@@ -13,7 +13,6 @@ plans:
   # IE Summary
   - analysis: "ie_summary"
     population: "enrolled"
-    group: "trt01a"
 
 population:
   - name: enrolled
@@ -22,9 +21,6 @@ population:
   - name: apat
     filter: "adsl:saffl == 'Y'"
 
-group:
-  - name: trt01a
-    variable: "adsl:trt01a"
 
 data:
   - name: adsl 

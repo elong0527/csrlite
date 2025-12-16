@@ -66,7 +66,6 @@ _ard = ie_summary_ard(
     observation=adie,
     population_filter=None,
     id=("USUBJID", "Subject ID"),
-    group=("TRT01A", "Treatment Group"),
     total=True,
     missing_group="error"
 )
