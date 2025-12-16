@@ -191,8 +191,6 @@ def ie_summary_ard(
         # We need the group variable.
         group_col_source = group_var_name
 
-
-
         if group_var_name not in obs_failures.columns:
             # Fallback: Can't determine group.
             # For now, let's try to find it or errors will occur later
@@ -222,8 +220,6 @@ def ie_summary_ard(
     observation_filtered = obs_failures.filter(
         pl.col(id_var_name).is_in(population_filtered[id_var_name])
     )
-
-
 
     # 1. Total Subjects Screened
     n_pop_counts = count_subject(
