@@ -43,7 +43,7 @@ class TestDispositionArd(unittest.TestCase):
                     "Ongoing",  # New case: Ongoing
                     "Discontinued",  # New case: Discontinued with Null Reason
                 ],
-                "DCREASCD": [
+                "DCSREAS": [
                     None,
                     None,
                     "Withdrawn",
@@ -56,7 +56,7 @@ class TestDispositionArd(unittest.TestCase):
             }
         )
         discontinued_reason = pl.Series(
-            "DCREASCD",
+            "DCSREAS",
             [
                 None,  # 01
                 None,  # 02
@@ -69,10 +69,10 @@ class TestDispositionArd(unittest.TestCase):
             ],
         )
         self.population_data = self.population_data.with_columns(
-            discontinued_reason.alias("DCREASCD")
+            discontinued_reason.alias("DCSREAS")
         ).with_columns(
             pl.col("EOSSTT").cast(pl.Categorical),
-            pl.col("DCREASCD").cast(pl.Categorical),
+            pl.col("DCSREAS").cast(pl.Categorical),
         )
 
     def test_disposition_ard_basic(self) -> None:
@@ -83,7 +83,7 @@ class TestDispositionArd(unittest.TestCase):
             population_filter=None,
             id=("USUBJID", "Subject ID"),
             group=("TRT01A", "Treatment"),
-            dist_reason_term=("DCREASCD", "Discontinued"),
+            dist_reason_term=("DCSREAS", "Discontinued"),
             ds_term=("EOSSTT", "Status"),
             total=True,
             missing_group="error",
@@ -133,8 +133,8 @@ class TestDispositionArd(unittest.TestCase):
         inconsistent_data = self.population_data.clone().with_columns(
             pl.when(pl.col("USUBJID") == "01")  # Subject 01 is Completed
             .then(pl.lit("Adverse Event"))  # Mismatched Reason
-            .otherwise(pl.col("DCREASCD"))
-            .alias("DCREASCD")
+            .otherwise(pl.col("DCSREAS"))
+            .alias("DCSREAS")
         )
 
         with self.assertRaisesRegex(ValueError, "mismatched discontinuation reason"):
@@ -143,7 +143,7 @@ class TestDispositionArd(unittest.TestCase):
                 population_filter=None,
                 id=("USUBJID", "Subject ID"),
                 group=("TRT01A", "Treatment"),
-                dist_reason_term=("DCREASCD", "Discontinued"),
+                dist_reason_term=("DCSREAS", "Discontinued"),
                 ds_term=("EOSSTT", "Status"),
                 total=True,
                 missing_group="error",
@@ -153,8 +153,8 @@ class TestDispositionArd(unittest.TestCase):
         redundant_data = self.population_data.clone().with_columns(
             pl.when(pl.col("USUBJID") == "01")  # Subject 01 is Completed
             .then(pl.lit("Completed"))  # Matches Status
-            .otherwise(pl.col("DCREASCD"))
-            .alias("DCREASCD")
+            .otherwise(pl.col("DCSREAS"))
+            .alias("DCSREAS")
         )
         # Should NOT raise error
         disposition_ard(
@@ -162,7 +162,7 @@ class TestDispositionArd(unittest.TestCase):
             population_filter=None,
             id=("USUBJID", "Subject ID"),
             group=("TRT01A", "Treatment"),
-            dist_reason_term=("DCREASCD", "Discontinued"),
+            dist_reason_term=("DCSREAS", "Discontinued"),
             ds_term=("EOSSTT", "Status"),
             total=True,
             missing_group="error",
@@ -175,8 +175,8 @@ class TestDispositionArd(unittest.TestCase):
         invalid_disc_null = self.population_data.clone().with_columns(
             pl.when(pl.col("USUBJID") == "03")  # Subject 03 is Discontinued/Withdrawn
             .then(None)  # Make Reason Null
-            .otherwise(pl.col("DCREASCD"))
-            .alias("DCREASCD")
+            .otherwise(pl.col("DCSREAS"))
+            .alias("DCSREAS")
         )
         with self.assertRaisesRegex(ValueError, "missing or invalid discontinuation reason"):
             disposition_ard(
@@ -184,7 +184,7 @@ class TestDispositionArd(unittest.TestCase):
                 population_filter=None,
                 id=("USUBJID", "Subject ID"),
                 group=("TRT01A", "Treatment"),
-                dist_reason_term=("DCREASCD", "Discontinued"),
+                dist_reason_term=("DCSREAS", "Discontinued"),
                 ds_term=("EOSSTT", "Status"),
                 total=True,
                 missing_group="error",
@@ -194,8 +194,8 @@ class TestDispositionArd(unittest.TestCase):
         invalid_disc_comp = self.population_data.clone().with_columns(
             pl.when(pl.col("USUBJID") == "03")  # Subject 03 is Discontinued
             .then(pl.lit("Completed"))  # Invalid Reason
-            .otherwise(pl.col("DCREASCD"))
-            .alias("DCREASCD")
+            .otherwise(pl.col("DCSREAS"))
+            .alias("DCSREAS")
         )
         with self.assertRaisesRegex(ValueError, "missing or invalid discontinuation reason"):
             disposition_ard(
@@ -203,7 +203,7 @@ class TestDispositionArd(unittest.TestCase):
                 population_filter=None,
                 id=("USUBJID", "Subject ID"),
                 group=("TRT01A", "Treatment"),
-                dist_reason_term=("DCREASCD", "Discontinued"),
+                dist_reason_term=("DCSREAS", "Discontinued"),
                 ds_term=("EOSSTT", "Status"),
                 total=True,
                 missing_group="error",
@@ -217,7 +217,7 @@ class TestDispositionArd(unittest.TestCase):
             population_filter=None,
             id=("USUBJID", "Subject ID"),
             group=None,  # No grouping
-            dist_reason_term=("DCREASCD", "Discontinued"),
+            dist_reason_term=("DCSREAS", "Discontinued"),
             ds_term=("EOSSTT", "Status"),
             total=True,
             missing_group="error",
@@ -236,7 +236,7 @@ class TestDispositionArd(unittest.TestCase):
             population_filter="TRT01A == 'Treatment A'",
             id=("USUBJID", "Subject ID"),
             group=("TRT01A", "Treatment"),
-            dist_reason_term=("DCREASCD", "Discontinued"),
+            dist_reason_term=("DCSREAS", "Discontinued"),
             ds_term=("EOSSTT", "Status"),
             total=False,
             missing_group="error",
@@ -354,7 +354,7 @@ class TestDispositionPipeline(unittest.TestCase):
                     "Completed",
                     "Completed",
                 ],
-                "DCREASCD": [
+                "DCSREAS": [
                     None,
                     None,
                     "Withdrawn",
@@ -365,7 +365,7 @@ class TestDispositionPipeline(unittest.TestCase):
             }
         ).with_columns(
             pl.col("EOSSTT").cast(pl.Categorical),
-            pl.col("DCREASCD").cast(pl.Categorical),
+            pl.col("DCSREAS").cast(pl.Categorical),
         )
 
         self.output_dir = Path("tests/output")
@@ -387,7 +387,7 @@ class TestDispositionPipeline(unittest.TestCase):
             population_filter=None,
             id=("USUBJID", "Subject ID"),
             group=("TRT01A", "Treatment"),
-            dist_reason_term=("DCREASCD", "Discontinued"),
+            dist_reason_term=("DCSREAS", "Discontinued"),
             ds_term=("EOSSTT", "Status"),
             title=["Disposition of Participants"],
             footnote=["Test footnote"],
@@ -410,7 +410,7 @@ class TestDispositionPipeline(unittest.TestCase):
             population_filter=None,
             id=("USUBJID", "Subject ID"),
             group=("TRT01A", "Treatment"),
-            dist_reason_term=("DCREASCD", "Discontinued"),
+            dist_reason_term=("DCSREAS", "Discontinued"),
             ds_term=("EOSSTT", "Status"),
             title=["Test"],
             footnote=None,
@@ -458,8 +458,8 @@ class TestStudyPlanToDisposition(unittest.TestCase):
                     clean_df = df.with_columns(
                         pl.when(pl.col("EOSSTT").is_in(["Completed", "Ongoing"]))
                         .then(None)
-                        .otherwise(pl.col("DCREASCD"))
-                        .alias("DCREASCD")
+                        .otherwise(pl.col("DCSREAS"))
+                        .alias("DCSREAS")
                     )
                     return (clean_df,)
                 return dfs
