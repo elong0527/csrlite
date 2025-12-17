@@ -62,6 +62,7 @@ def study_plan_to_ie_summary(
 
     for row in ie_plans.iter_rows(named=True):
         population = row["population"]
+        group = row.get("group")
         title_text = title
 
         # Get datasets
@@ -69,6 +70,19 @@ def study_plan_to_ie_summary(
 
         # Get filters
         population_filter = parser.get_population_filter(population)
+
+        # Handle group
+        if group:
+            group_var_name, group_labels = parser.get_group_info(group)
+            group_var_label = group_labels[0] if group_labels else "Treatment"
+            group_tuple = (group_var_name, group_var_label)
+        else:
+            # Default or Error?
+            # If no group specified, we might default to TRT01A or "Overall"
+            # But the plan usually specifies it.
+            # Fallback to TRT01A
+            group_tuple = ("TRT01A", "Treatment Group")
+
 
         # Build title
         title_parts = [title_text]
@@ -85,6 +99,7 @@ def study_plan_to_ie_summary(
             observation=observation_df,
             population_filter=population_filter,
             id=id,
+            group=group_tuple,
             title=title_parts,
             footnote=footnote,
             source=source,
@@ -102,6 +117,7 @@ def ie_summary(
     observation: pl.DataFrame,
     population_filter: str | None,
     id: tuple[str, str],
+    group: tuple[str, str],
     title: list[str],
     footnote: list[str] | None,
     source: list[str] | None,
@@ -119,6 +135,7 @@ def ie_summary(
         observation=observation,
         population_filter=population_filter,
         id=id,
+        group=group,
         total=total,
         missing_group=missing_group,
     )
@@ -144,6 +161,7 @@ def ie_summary_ard(
     observation: pl.DataFrame,
     population_filter: str | None,
     id: tuple[str, str],
+    group: tuple[str, str],
     total: bool,
     missing_group: str,
     pop_var_name: str = "Total Subjects Screened",
@@ -152,8 +170,9 @@ def ie_summary_ard(
     Generate ARD for IE Summary Table.
     """
     id_var_name, _ = id
-    group_var_name = "Overall"
-    total = False
+    group_var_name, _ = group
+    # total = False  # Removed hardcoded False, rely on argument
+
 
     # Apply common filters
     population_filtered, observation_to_filter = apply_common_filters(
@@ -174,6 +193,7 @@ def ie_summary_ard(
             observation_to_filter = observation_to_filter.with_columns(
                 pl.lit("Overall").alias("Overall")
             )
+
 
     # Identify screen failures in observation not in population
     # Only if they have AFLAG='Y'
