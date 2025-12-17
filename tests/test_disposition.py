@@ -280,7 +280,7 @@ class TestDispositionDf(unittest.TestCase):
                 "__group__": ["Grp A"] * 3 + ["Grp B"] * 3,
                 "__value__": ["1", "2", "3", "4", "5", "6"],
             }
-        ) .with_columns(pl.col("__index__").cast(pl.Enum(var_labels)))
+        ).with_columns(pl.col("__index__").cast(pl.Enum(var_labels)))
 
         df = disposition_df(ard)
 
