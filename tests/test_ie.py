@@ -39,7 +39,7 @@ class TestIEArd(unittest.TestCase):
             }
         )
 
-    def test_ie_ard_logic(self):
+    def test_ie_ard_logic(self) -> None:
         """Test basic logic of IE ARD generation."""
         ard = ie_ard(adsl=self.adsl, adie=self.adie, group_col="TRT01A")
 
@@ -75,7 +75,7 @@ class TestIEArd(unittest.TestCase):
         self.assertEqual(row_x["count_A"], 1)
         self.assertEqual(row_x["count_B"], 1)
 
-    def test_ie_df_formatting(self):
+    def test_ie_df_formatting(self) -> None:
         """Test formatting of DF."""
         ard = ie_ard(adsl=self.adsl, adie=self.adie, group_col="TRT01A")
         df = ie_df(ard)

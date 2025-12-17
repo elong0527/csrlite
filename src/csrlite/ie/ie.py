@@ -10,6 +10,7 @@ This module provides a pipeline for IE summary analysis:
 """
 
 from pathlib import Path
+from typing import Any
 
 import polars as pl
 
@@ -124,11 +125,11 @@ def ie_ard(adsl: pl.DataFrame, adie: pl.DataFrame, group_col: str | None = None)
       - [Detail]
     """
     # If group_col is None, create a dummy group column
-    actual_group_col = group_col if group_col else "Total"
+    actual_group_col: str = group_col if group_col else "Total"
 
     # 1. Prepare Data
     # Join ADIE to ADSL to get treatment group info
-    df_joined = adie.join(
+    df_joined: pl.DataFrame = adie.join(
         adsl.select(["USUBJID"] + ([group_col] if group_col else [])), on="USUBJID", how="inner"
     )
 
@@ -137,13 +138,13 @@ def ie_ard(adsl: pl.DataFrame, adie: pl.DataFrame, group_col: str | None = None)
         df_joined = df_joined.with_columns(pl.lit("Total").alias("Total"))
 
     # Define hierarchy
-    results = []
+    results: list[dict[str, Any]] = []
 
     # Get distinct groups
+    groups: list[str]
     if group_col:
-        groups = sorted(adsl.select(group_col).unique().to_series().to_list())
-        if None in groups:
-            groups.remove(None)
+        groups_raw: list[str | None] = sorted(adsl.select(group_col).unique().to_series().to_list())
+        groups = [g for g in groups_raw if g is not None]
     else:
         groups = ["Total"]
 
@@ -157,7 +158,7 @@ def ie_ard(adsl: pl.DataFrame, adie: pl.DataFrame, group_col: str | None = None)
         pl.col("USUBJID").n_unique().alias("count")
     )
 
-    total_failures_map = {
+    total_failures_map: dict[str, int] = {
         row[actual_group_col]: row["count"] for row in total_failures_by_group.iter_rows(named=True)
     }
 
@@ -165,7 +166,7 @@ def ie_ard(adsl: pl.DataFrame, adie: pl.DataFrame, group_col: str | None = None)
     def add_row(
         label: str, filter_expr: pl.Expr | None = None, is_header: bool = False, indent: int = 0
     ) -> None:
-        row_data = {"label": label, "indent": indent, "is_header": is_header}
+        row_data: dict[str, Any] = {"label": label, "indent": indent, "is_header": is_header}
 
         for g in groups:
             # Filter data for this group
