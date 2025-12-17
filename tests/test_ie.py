@@ -104,7 +104,7 @@ class TestIEArd(unittest.TestCase):
     def test_ie_ard_no_group(self) -> None:
         """Test ARD generation without group column."""
         ard = ie_ard(adsl=self.adsl, adie=self.adie, group_col=None)
-        
+
         self.assertIn("count_Total", ard.columns)
         self.assertIn("pct_Total", ard.columns)
         self.assertNotIn("count_A", ard.columns)
@@ -121,15 +121,15 @@ class TestIeRtf(unittest.TestCase):
         df = pl.DataFrame({"Criteria": ["Row 1"], "Total": ["1 (100.0)"]})
         mock_doc = MagicMock()
         mock_create.return_value = mock_doc
-        
+
         ie_rtf(df, "output.rtf", title="Test Title")
-        
+
         mock_create.assert_called_once()
         args, kwargs = mock_create.call_args
         self.assertEqual(kwargs["title"], ["Test Title"])
         self.assertEqual(kwargs["col_header_1"], ["Criteria", "Total"])
         self.assertEqual(kwargs["col_header_2"], ["", "n (%)"])
-        
+
         mock_doc.write_rtf.assert_called_with("output.rtf")
 
 
@@ -159,20 +159,14 @@ class TestStudyPlanToIeSummary(unittest.TestCase):
 
         # Mock analysis plans
         study_plan.study_data = {
-            "plans": [
-                {
-                    "analysis": "ie_summary",
-                    "population": "enrolled",
-                    "group": "trt01a"
-                }
-            ]
+            "plans": [{"analysis": "ie_summary", "population": "enrolled", "group": "trt01a"}]
         }
-        
+
         # Mock Expander
         mock_expander = MagicMock()
         # Return list of plans
         mock_expander.expand_plan.return_value = study_plan.study_data["plans"]
-        mock_expander.create_analysis_spec.side_effect = lambda x: x # Identity
+        mock_expander.create_analysis_spec.side_effect = lambda x: x  # Identity
         study_plan.expander = mock_expander
 
         # Mock Parser instance
@@ -187,11 +181,11 @@ class TestStudyPlanToIeSummary(unittest.TestCase):
         # Verify
         self.assertEqual(len(generated), 1)
         self.assertTrue(generated[0].endswith("ie_summary_enrolled_trt01a.rtf"))
-        
+
         # Verify parser calls
         mock_parser.get_population_data.assert_called_with("enrolled", "trt01a")
         mock_parser.get_datasets.assert_called_with("adie")
-        
+
         # Verify RTF generation called
         mock_ie_rtf.assert_called_once()
 
@@ -220,7 +214,7 @@ class TestStudyPlanToIeSummary(unittest.TestCase):
                 }
             ]
         }
-        
+
         mock_expander = MagicMock()
         mock_expander.expand_plan.return_value = study_plan.study_data["plans"]
         mock_expander.create_analysis_spec.side_effect = lambda x: x
@@ -230,11 +224,11 @@ class TestStudyPlanToIeSummary(unittest.TestCase):
         mock_parser = mock_parser_cls.return_value
         # Mock get_datasets for ADSL and ADIE
         mock_parser.get_datasets.side_effect = [
-            (self.adsl,), # First call for ADSL
-            (self.adie,), # Second call for ADIE
+            (self.adsl,),  # First call for ADSL
+            (self.adie,),  # Second call for ADIE
         ]
         mock_parser.get_population_filter.return_value = None
-        
+
         # Mock apply_common_filters
         mock_apply.return_value = (self.adsl, None)
 
@@ -244,10 +238,11 @@ class TestStudyPlanToIeSummary(unittest.TestCase):
         # Verify
         self.assertEqual(len(generated), 1)
         self.assertTrue(generated[0].endswith("ie_summary_enrolled_total.rtf"))
-        
+
         # Verify flow
         mock_parser.get_datasets.assert_any_call("adsl")
         mock_apply.assert_called()
+
 
 if __name__ == "__main__":
     unittest.main()
