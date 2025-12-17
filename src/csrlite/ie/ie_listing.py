@@ -5,6 +5,7 @@ Inclusion/Exclusion (IE) Listing Functions
 This module provides functions for generating IE listings.
 
 """
+
 from pathlib import Path
 from typing import Any
 
@@ -64,7 +65,7 @@ def ie_listing_ard(
         pop_cols = [id_var_name] + [col for col in pop_col_names if col != id_var_name]
         pop_cols_available = [col for col in pop_cols if col in population_filtered.columns]
         population_subset = population_filtered.select(pop_cols_available)
-        
+
         # Left join to preserve observation records
         result = result.join(population_subset, on=id_var_name, how="left")
 
@@ -184,7 +185,7 @@ def ie_listing(
         col_rel_width=col_rel_width,
         orientation=orientation,
     )
-    
+
     rtf_doc.write_rtf(output_file)
     return output_file
 
@@ -204,10 +205,10 @@ def study_plan_to_ie_listing(
     observation_df_name = "adie"
 
     id = ("USUBJID", "Subject ID")
-    
+
     # Defaults - User requested only USUBJID and I/E Reason
     population_columns_base: list[tuple[str, str]] = []
-    
+
     # Based on adie.parquet
     observation_columns_base = [
         ("PARAM", "Inclusion/Exclusion Reason"),
@@ -218,29 +219,29 @@ def study_plan_to_ie_listing(
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     parser = StudyPlanParser(study_plan)
     plan_df = study_plan.get_plan_df()
-    
+
     ie_plans = plan_df.filter(pl.col("analysis") == analysis)
-    
+
     rtf_files = []
 
     for row in ie_plans.iter_rows(named=True):
         population = row["population"]
         # observation = row.get("observation")
-        group = row.get("group") # Optional
+        group = row.get("group")  # Optional
 
         # Get datasets
         population_df, observation_df = parser.get_datasets(population_df_name, observation_df_name)
-        
+
         # Get filters
         population_filter = parser.get_population_filter(population)
-        
+
         # Handle group if present
         population_columns = list(population_columns_base)
         if group:
             group_var_name, group_labels = parser.get_group_info(group)
             group_var_label = group_labels[0] if group_labels else "Treatment"
             population_columns.append((group_var_name, group_var_label))
-        
+
         # Build title
         title_parts = ["Inclusion/Exclusion Listing"]
         pop_kw = study_plan.keywords.populations.get(population)
@@ -262,8 +263,8 @@ def study_plan_to_ie_listing(
             population_columns=population_columns,
             observation_columns=observation_columns_base,
             sort_columns=sort_columns,
-            col_rel_width=col_rel_width, # Using fixed width for now, could be dynamic
+            col_rel_width=col_rel_width,  # Using fixed width for now, could be dynamic
         )
         rtf_files.append(rtf_path)
-        
+
     return rtf_files
