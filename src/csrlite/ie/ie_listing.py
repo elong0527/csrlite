@@ -206,7 +206,7 @@ def study_plan_to_ie_listing(
     id = ("USUBJID", "Subject ID")
     
     # Defaults - User requested only USUBJID and I/E Reason
-    population_columns_base = []
+    population_columns_base: list[tuple[str, str]] = []
     
     # Based on adie.parquet
     observation_columns_base = [
@@ -225,7 +225,7 @@ def study_plan_to_ie_listing(
 
     for row in ie_plans.iter_rows(named=True):
         population = row["population"]
-        observation = row.get("observation")
+        # observation = row.get("observation")
         group = row.get("group") # Optional
 
         # Get datasets
