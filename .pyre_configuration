@@ -2,8 +2,5 @@
     "source_directories": [
         "src",
         "tests"
-    ],
-    "search_path": [
-        ".venv/lib/python3.13/site-packages"
     ]
 }
