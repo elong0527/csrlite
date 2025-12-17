@@ -30,6 +30,10 @@ from .ie.ie import (
     ie_summary,
     study_plan_to_ie_summary,
 )
+from .ie.ie_listing import (
+    ie_listing,
+    study_plan_to_ie_listing,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -56,6 +60,8 @@ __all__ = [
     # IE analysis
     "ie_summary",
     "study_plan_to_ie_summary",
+    "ie_listing",
+    "study_plan_to_ie_listing",
     # Count functions
     "count_subject",
     "count_subject_with_observation",

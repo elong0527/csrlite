@@ -1,0 +1,81 @@
+---
+title: "IE Listing"
+---
+
+::: {.callout-note}
+## Objectives
+
+This guide demonstrates Inclusion/Exclusion (IE) listing.
+:::
+
+## Setup
+
+```{python}
+#| message: false
+import sys
+from pathlib import Path
+import polars as pl
+
+sys.path.insert(0, '../src')
+
+from csrlite import load_plan, study_plan_to_ie_listing
+from csrlite.ie.ie_listing import ie_listing_ard, ie_listing_rtf, ie_listing
+```
+
+## StudyPlan-Driven Workflow
+
+```{python}
+study_plan = load_plan("../studies/xyz123/yaml/plan_ie_listing_xyz123.yaml")
+study_plan.get_plan_df()
+```
+
+```{python}
+output_files = study_plan_to_ie_listing(study_plan)
+print(f"Generated: {output_files}")
+```
+
+## Step-by-Step Pipeline
+
+### Load Data
+
+```{python}
+# Relative paths to data from docs/
+adsl = pl.read_parquet("../data/adsl.parquet")
+adie = pl.read_parquet("../data/adie.parquet")
+
+print(f"ADSL: {len(adsl)} rows")
+print(f"ADIE: {len(adie)} rows")
+```
+
+### Step 1: Generate ARD
+
+```{python}
+_ard = ie_listing_ard(
+    population=adsl,
+    observation=adie,
+    population_filter="ITTFL = 'Y'",
+    id=("USUBJID", "Subject ID"),
+    population_columns=[],
+    observation_columns=[("PARAM", "Inclusion/Exclusion Reason")],
+    sort_columns=["USUBJID"]
+)
+
+_ard.head(10)
+```
+
+### Step 2: Generate RTF
+
+```{python}
+ie_listing_rtf(
+    _ard.head(10),
+    column_labels={"USUBJID": "Subject ID", "PARAM": "Inclusion/Exclusion Reason"},
+    title=[
+        "Inclusion/Exclusion Listing",
+        "(ITT Population)"
+    ],
+    footnote=None,
+    source=["Source: ADSL and ADIE datasets"],
+).write_rtf("../studies/xyz123/rtf/ie_listing_step.rtf")
+
+print(f"Created ../studies/xyz123/rtf/ie_listing_step.rtf")
+```
