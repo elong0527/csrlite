@@ -20,6 +20,11 @@ plans:
     population: "enrolled"
     group: "trt01a"
 
+  # Disposition Summary
+  - analysis: "disposition_summary"
+    population: "enrolled"
+    group: "trt01a"
+
   # AE Summary tables
   - analysis: "ae_summary"
     population: "apat"
