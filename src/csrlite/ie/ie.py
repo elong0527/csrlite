@@ -318,15 +318,18 @@ def study_plan_to_ie_listing(
 
     # Filter for ie_listing if user specified it, otherwise we might trigger it manually
     # But for now let's assume if this function is called, we want to run for "ie_listing"
-    # If the user only asked for "ie_listing", we might need to add it to the plan or just run it blindly for all?
+    # If the user only asked for "ie_listing", we might need to add it to the plan
+    # or just run it blindly for all?
     # Usually we filter by analysis_type.
     listing_plans = plan_df.filter(pl.col("analysis") == analysis_type)
 
-    # If no specific listing plans are found, maybe we should just generate one default one for the whole study?
+    # If no specific listing plans are found, maybe we should just generate one
+    # default one for the whole study?
     # But sticking to the pattern:
     generated_files = []
 
-    # If listing_plans is empty, let's create a default one to ensure we generate something for the user
+    # If listing_plans is empty, let's create a default one to ensure we generate
+    # something for the user
     # since they explicitly asked for it.
     if listing_plans.height == 0:
         # Create a dummy row to force generation
@@ -337,7 +340,8 @@ def study_plan_to_ie_listing(
         pop_name = analysis.get("population", "enrolled")
 
         try:
-            # Load Filtered Population (ADSL) without Group (Listings usually don't group by columns like tables)
+            # Load Filtered Population (ADSL) without Group
+            # (Listings usually don't group by columns like tables)
             # But if they did, we'd handle it. For now, just load raw ADSL.
             (adsl_raw,) = parser.get_datasets("adsl")
             # We could filter, but user just said "show USUBJID and DCSREAS from adsl".

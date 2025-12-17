@@ -1,11 +1,12 @@
 
-import polars as pl
-import pytest
 import os
 from unittest.mock import MagicMock, patch
+
+import polars as pl
+import pytest
+
+from csrlite.common.plan import StudyPlan
 from csrlite.ie.ie import ie_listing_df, ie_listing_rtf, study_plan_to_ie_listing
-from csrlite.common.plan import StudyPlan, PlanExpander
-from csrlite.common.parse import StudyPlanParser
 
 # -----------------------------------------------------------------------------
 # Test Data
@@ -65,7 +66,10 @@ def test_study_plan_to_ie_listing(tmp_path):
     # Mock Expander
     mock_expander = MagicMock()
     mock_expander.expand_plan.return_value = [{"analysis": "ie_listing", "population": "discon"}]
-    mock_expander.create_analysis_spec.return_value = {"analysis": "ie_listing", "population": "discon"}
+    mock_expander.create_analysis_spec.return_value = {
+        "analysis": "ie_listing",
+        "population": "discon"
+    }
     mock_plan.expander = mock_expander
     
     # Mock Data Loading/Filtering
