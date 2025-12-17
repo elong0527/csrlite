@@ -123,7 +123,7 @@ class TestDispositionArd(unittest.TestCase):
                 population_filter=None,
                 id=("USUBJID", "Subject ID"),
                 group=("TRT01A", "Treatment"),
-                dist_reason_term=("DCREASCD", "Discontinued"),
+                dist_reason_term=("DCSREAS", "Discontinued"),
                 ds_term=("EOSSTT", "Status"),
                 total=True,
                 missing_group="error",
