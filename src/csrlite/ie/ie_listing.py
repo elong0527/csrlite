@@ -222,12 +222,12 @@ def study_plan_to_ie_listing(
 
     ie_plans = plan_df.filter(pl.col("analysis") == analysis)
 
-    rtf_files = []
+    rtf_files: list[str] = []
 
     for row in ie_plans.iter_rows(named=True):
-        population = row["population"]
+        population: str = row["population"]
         # observation = row.get("observation")
-        group = row.get("group")  # Optional
+        group: str | None = row.get("group")  # Optional
 
         # Get datasets
         population_df, observation_df = parser.get_datasets(population_df_name, observation_df_name)
