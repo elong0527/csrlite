@@ -56,6 +56,6 @@ format:
 
 execute:
   freeze: false
-  cache: true
+  cache: false
 
 jupyter: python3
