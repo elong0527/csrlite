@@ -1,0 +1,41 @@
+study:
+  name: "XYZ123"
+  title: "Study XYZ123"
+  protocol_number: "XYZ123"
+  output: "studies/xyz123/rtf"
+
+data:
+  - name: "adsl"
+    path: "data/adsl.parquet"
+  - name: "adcm"
+    path: "data/adcm.parquet"
+
+
+population:
+  - name: "itt"
+    label: "Intent-to-Treat Population"
+    filter: "adsl:ittfl == 'Y'"
+  - name: "saffl"
+    label: "Safety Population"
+    filter: "adsl:saffl == 'Y'"
+
+observation:
+  - name: "cm_ontrt"
+    label: "On-Treatment Concomitant Medications"
+    filter: "adcm:ontrtfl == 'Y'"
+
+group:
+  - name: "treatment_group"
+    variable: "adsl:TRT01A"
+    label: ["Treatment A", "Treatment B", "Placebo"]
+
+plans:
+  - analysis: "cm_summary"
+    population: "saffl"
+    observation: "cm_ontrt"
+    group: "treatment_group"
+    
+  - analysis: "cm_listing"
+    population: "saffl"
+    observation: "cm_ontrt"
+    group: "treatment_group"

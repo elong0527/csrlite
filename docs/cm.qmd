@@ -1,0 +1,81 @@
+---
+title: "Concomitant Medications"
+---
+
+::: {.callout-note}
+## Objectives
+
+This section presents the Concomitant Medications (CM) analysis, including a summary table of medication counts and a detailed listing.
+:::
+
+## Setup
+
+```{python}
+#| message: false
+import os
+import sys
+import polars as pl
+from pathlib import Path
+
+# Ensure src is in path
+sys.path.insert(0, os.path.abspath('src'))
+
+from rtflite import LibreOfficeConverter
+try:
+    converter = LibreOfficeConverter()
+except Exception:
+    converter = None
+    print("WARNING: LibreOffice not found. PDF conversion will be skipped.")
+
+from csrlite import load_plan, study_plan_to_cm_summary, study_plan_to_cm_listing
+```
+
+## StudyPlan-Driven Workflow
+
+Generating CM Summary and Listing from the study plan.
+
+```{python}
+try:
+    # Load the specific CM plan for demonstration (or could use main plan)
+    study_plan = load_plan("plan_cm_xyz123.yaml")
+    
+    # Generate tables
+    print("Generating CM Summary...")
+    sum_files = study_plan_to_cm_summary(study_plan)
+    
+    print("Generating CM Listing...")
+    list_files = study_plan_to_cm_listing(study_plan)
+    
+    output_files = sum_files + list_files
+    
+except Exception as e:
+    print(f"Error executing StudyPlan workflow: {e}")
+    output_files = []
+```
+
+## Generated Outputs
+
+```{python}
+#| echo: false
+# Convert to PDF for display
+for file in output_files:
+    if converter:
+        # Output PDF to docs/pdf relative to project root
+        converter.convert(file, output_dir="docs/pdf/", format="pdf", overwrite=True)
+
+# Display links or embed PDFs
+from IPython.display import display, Markdown
+
+for file in output_files:
+    filename = Path(file).name
+    pdf_path = f"pdf/{filename.replace('.rtf', '.pdf')}"
+    
+    display(Markdown(f"### {filename}"))
+    display(Markdown(f"[Download RTF]({file}) | [View PDF]({pdf_path})"))
+    
+    # Embedding PDF in iframe for view
+    display(Markdown(f"""
+<iframe src="{pdf_path}" width="100%" height="600px">
+</iframe>
+    """))
+```
