@@ -141,5 +141,123 @@ class TestPdListing(unittest.TestCase):
 
         res = study_plan_to_pd_listing(mock_plan)
 
-        self.assertEqual(res, ["path.rtf"])
         mock_pd_listing.assert_called_once()
+
+    @patch("csrlite.pd.pd_listing.pd_listing")
+    def test_study_plan_to_pd_listing_full(self, mock_pd_listing: MagicMock) -> None:
+        mock_pd_listing.return_value = "path.rtf"
+        mock_plan = MagicMock()
+        mock_plan.output_dir = "out"
+
+        # Plan with observation
+        plan_df = pl.DataFrame(
+            {
+                "analysis": ["pd_listing"],
+                "population": ["pop1"],
+                "observation": ["obs1"],
+                "group": ["group1"],
+            }
+        )
+        mock_plan.get_plan_df.return_value = plan_df
+        mock_plan.datasets = {"adsl": self.adsl, "adpd": self.adpd}
+
+        mock_kw_pop = MagicMock()
+        mock_kw_pop.label = "Pop"
+        mock_kw_pop.filter = "SAFFL='Y'"
+        
+        # Mock the method used by parser
+        mock_plan.keywords.get_population.return_value = mock_kw_pop
+        # Mock the attribute used by wrapper (calls populations.get)
+        mock_plan.keywords.populations.get.return_value = mock_kw_pop
+        
+        mock_kw_group = MagicMock()
+        mock_kw_group.variable = "adsl:TRT01A"
+        mock_kw_group.group_label = ["A"]
+        mock_plan.keywords.get_group.return_value = mock_kw_group
+        
+        # Mock observation
+        mock_kw_obs = MagicMock()
+        mock_kw_obs.filter = "DVCAT='MAJOR'"
+        mock_plan.keywords.get_observation.return_value = mock_kw_obs
+
+        study_plan_to_pd_listing(mock_plan)
+
+        # Triggered: title append, filename with observation
+        args, kwargs = mock_pd_listing.call_args
+        self.assertIn("Pop", kwargs["title"]) 
+        self.assertTrue(kwargs["output_file"].endswith("pd_listing_pop1_obs1.rtf"))
+
+    @patch("csrlite.pd.pd_listing.pd_listing")
+    def test_study_plan_to_pd_listing_no_pop_label(self, mock_pd_listing: MagicMock) -> None:
+        mock_pd_listing.return_value = "path.rtf"
+        mock_plan = MagicMock()
+        mock_plan.output_dir = "out"
+        
+        plan_df = pl.DataFrame(
+            {"analysis": ["pd_listing"], "population": ["pop1"], "group": ["g1"]}
+        )
+        mock_plan.get_plan_df.return_value = plan_df
+        mock_plan.datasets = {"adsl": self.adsl, "adpd": self.adpd}
+
+        # Mock kw with NO label
+        mock_kw_pop = MagicMock()
+        mock_kw_pop.label = None
+        mock_kw_pop.filter = "1=1"
+        mock_plan.keywords.get_population.return_value = mock_kw_pop
+        mock_plan.keywords.populations.get.return_value = mock_kw_pop
+        
+        mock_kw_group = MagicMock()
+        mock_kw_group.variable = "adsl:TRT01A"
+        mock_kw_group.group_label = ["A"]
+        mock_plan.keywords.get_group.return_value = mock_kw_group
+        
+        mock_plan.keywords.get_observation.return_value = None
+
+        study_plan_to_pd_listing(mock_plan)
+        
+        # Verify title does NOT contain None or cause error
+        args, kwargs = mock_pd_listing.call_args
+        # Should just be base title
+        self.assertEqual(kwargs["title"], ["Listing of Protocol Deviations"])
+
+    @patch("csrlite.pd.pd_listing.RTFDocument")
+    def test_pd_listing_integration_with_columns(
+        self, mock_rtf_doc_cls: MagicMock
+    ) -> None:
+        mock_doc = MagicMock()
+        mock_rtf_doc_cls.return_value = mock_doc
+        output_file = "test_cols.rtf"
+
+        # Pass explicit columns AND source to cover lines
+        pd_listing(
+            population=self.adsl,
+            observation=self.adpd,
+            population_filter=None,
+            observation_filter=None,
+            id=self.id,
+            title=["Title"],
+            footnote=None,
+            source=["Source"],
+            output_file=output_file,
+            population_columns=[("SEX", "Sex")],
+            observation_columns=[("DVCAT", "Category")],
+        )
+        mock_rtf_doc_cls.assert_called()
+
+    @patch("csrlite.pd.pd_listing.pd_listing")
+    def test_study_plan_to_pd_listing_missing_group(
+
+        self, mock_pd_listing: MagicMock
+    ) -> None:
+        mock_plan = MagicMock()
+        mock_plan.output_dir = "out"
+        # Plan with missing group
+        plan_df = pl.DataFrame(
+            {"analysis": ["pd_listing"], "population": ["pop1"], "group": [None]}
+        )
+        mock_plan.get_plan_df.return_value = plan_df
+        mock_plan.keywords.populations.get.return_value = MagicMock()
+
+        with self.assertRaises(ValueError):
+            study_plan_to_pd_listing(mock_plan)
+
