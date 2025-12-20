@@ -17,15 +17,9 @@ import sys
 import polars as pl
 from pathlib import Path
 
-print(f"Python Executable: {sys.executable}")
 sys.path.insert(0, os.path.abspath('src'))
-print(f"CWD: {os.getcwd()}")
-print(f"Path: {sys.path}")
-src_path = os.path.abspath('src')
-if os.path.exists(src_path):
-    print(f"Contents of {src_path}: {os.listdir(src_path)}")
-else:
-    print(f"{src_path} does not exist!")
+if not os.path.exists('src') and os.path.exists('../src'):
+    sys.path.insert(0, os.path.abspath('../src'))
 
 from rtflite import LibreOfficeConverter
 try:
@@ -46,10 +40,12 @@ Shows detailed individual protocol deviations with categories and terms.
 
 ```{python}
 try:
-    study_plan = load_plan("plan_pd_xyz123.yaml")
+    study_plan = load_plan("studies/xyz123/yaml/plan_xyz123.yaml")
+    # Filter for pd_listing analyses
+    study_plan.get_plan_df().filter(pl.col("analysis") == "pd_listing")
     output_files = study_plan_to_pd_listing(study_plan)
 except Exception as e:
-    print(f"Skipping StudyPlan workflow due to: {e}")
+    print(f"Error loading plan or generating listing: {e}")
     output_files = []
 ```
 
@@ -60,13 +56,108 @@ for file in output_files:
         converter.convert(file, output_dir="docs/pdf/", format="pdf", overwrite=True)
 ```
 
+### pd_listing_itt_pd_major
+
+<embed src="pdf/pd_listing_itt_pd_major.pdf" style="width:100%; height:600px" type="application/pdf">
+
+### pd_listing_apat
+
+<embed src="pdf/pd_listing_apat.pdf" style="width:100%; height:600px" type="application/pdf">
+
 ## Complete Pipeline
 
 ```{python}
+data_path = Path("data") if Path("data").exists() else Path("../data")
+adsl = pl.read_parquet(data_path / "adsl.parquet")
+adpd = pl.read_parquet(data_path / "adpd.parquet")
 
-## Output
+pd_listing(
+    population=adsl,
+    observation=adpd,
+    population_filter="ITTFL = 'Y'",
+    observation_filter="DVCAT = 'Major'",
+    id=("USUBJID", "Subject ID"),
+    title=[
+        "Listing of Major Protocol Deviations",
+        "(Intent-to-Treat Population)"
+    ],
+    footnote=["Protocol deviations are sorted by treatment and subject ID."],
+    source=["Source: ADSL and ADPD datasets"],
+    output_file="studies/xyz123/rtf/pd_listing_manual.rtf",
+    population_columns=[
+        ("TRT01A", "Treatment")
+    ],
+    observation_columns=[
+        ("DVCAT", "Category"),
+        ("DVTERM", "Term"),
+        ("DVDECOD", "Coded Term")
+    ],
+    sort_columns=["TRT01A", "USUBJID", "DVCAT", "DVTERM"],
+    group_by=["USUBJID"],
+    page_by=["TRT01A"],
+)
+```
 
-The following listings were generated from the Study Plan:
+```{python}
+#| echo: false
+if converter:
+    converter.convert("studies/xyz123/rtf/pd_listing_manual.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
 
+<embed src="pdf/pd_listing_manual.pdf" style="width:100%; height:600px" type="application/pdf">
 
+## Step-by-Step Pipeline
 
+### Step 1: Generate ARD
+
+```{python}
+_ard = pd_listing_ard(
+    population=adsl,
+    observation=adpd,
+    population_filter="ITTFL = 'Y'",
+    observation_filter="DVCAT = 'Major'",
+    id=("USUBJID", "Subject ID"),
+    population_columns=[("TRT01A", "Treatment")],
+    observation_columns=[
+        ("DVCAT", "Category"),
+        ("DVTERM", "Term"),
+        ("DVDECOD", "Coded Term")
+    ],
+    sort_columns=["TRT01A", "USUBJID", "DVCAT", "DVTERM"],
+    page_by=["TRT01A"]
+)
+
+_ard.head(5)
+```
+
+### Step 2: Generate RTF Output
+
+```{python}
+pd_listing_rtf(
+    _ard.head(10),
+    column_labels={
+        "USUBJID": "Subject ID",
+        "TRT01A": "Treatment",
+        "DVCAT": "Category",
+        "DVTERM": "Term",
+        "DVDECOD": "Coded Term",
+        "__index__": ""
+    },
+    title=[
+        "Listing of Major Protocol Deviations",
+        "(Intent-to-Treat Population)"
+    ],
+    footnote=["Protocol deviations are sorted by treatment and subject ID."],
+    source=["Source: ADSL and ADPD datasets"],
+    group_by=["USUBJID"],
+    page_by=["__index__"]
+).write_rtf("studies/xyz123/rtf/pd_listing_step.rtf")
+```
+
+```{python}
+#| echo: false
+if converter:
+    converter.convert("studies/xyz123/rtf/pd_listing_step.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+<embed src="pdf/pd_listing_step.pdf" style="width:100%; height:600px" type="application/pdf">
