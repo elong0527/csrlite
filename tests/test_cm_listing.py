@@ -117,7 +117,7 @@ class TestCmListing(unittest.TestCase):
         mock_plan.keywords.get_population.return_value = mock_kw_pop
         mock_plan.keywords.get_group.return_value = mock_kw_group
         mock_plan.keywords.populations.get.return_value = mock_kw_pop
-        
+
         # Mock observation keyword
         mock_plan.keywords.observations.get.return_value = None
 
