@@ -101,7 +101,7 @@ def mh_summary_ard(
 
     # We will build a list of (filter_expr, label, indent_level, is_header)
 
-    specs = []
+    specs: list[dict[str, Any]] = []
 
     # 1. Overall "Any Medical History"
     specs.append(
@@ -109,7 +109,9 @@ def mh_summary_ard(
     )
 
     # Get distinct Body Systems
-    bodsys_list = adq.select("MHBODSYS").unique().sort("MHBODSYS").to_series().to_list()
+    bodsys_list: list[str | None] = (
+        adq.select("MHBODSYS").unique().sort("MHBODSYS").to_series().to_list()
+    )
 
     for sys in bodsys_list:
         if sys is None:
@@ -126,7 +128,7 @@ def mh_summary_ard(
         )
 
         # Get distinct Terms within this System
-        terms = (
+        terms: list[str | None] = (
             adq.filter(pl.col("MHBODSYS") == sys)
             .select("MHDECOD")
             .unique()
@@ -148,14 +150,15 @@ def mh_summary_ard(
             )
 
     # Now calculate counts for each spec
-    results = []
+    results: list[dict[str, Any]] = []
 
     # Get total population counts by group
     pop_counts = adsl.group_by(group_col).count().sort(group_col)
-    groups = pop_counts.select(group_col).to_series().to_list()
-
+    groups: list[Any] = pop_counts.select(group_col).to_series().to_list()
     # Pre-calculate totals map
-    pop_totals = {row[group_col]: row["count"] for row in pop_counts.iter_rows(named=True)}
+    pop_totals: dict[Any, int] = {
+        row[group_col]: row["count"] for row in pop_counts.iter_rows(named=True)
+    }
 
     # Helper to calculate row
     def calc_row(spec: dict[str, Any]) -> dict[str, Any]:
