@@ -5,7 +5,6 @@ Inclusion/Exclusion (IE) Listing Analysis Functions
 
 from pathlib import Path
 
-
 import polars as pl
 
 from ..common.parse import StudyPlanParser

@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import polars as pl
 
 from csrlite.common.plan import StudyPlan
-from csrlite.ie.ie import (
+from csrlite.ie.ie_summary import (
     ie_ard,
     ie_df,
     ie_rtf,
@@ -115,7 +115,7 @@ class TestIEArd(unittest.TestCase):
 
 
 class TestIeRtf(unittest.TestCase):
-    @patch("csrlite.ie.ie.create_rtf_table_n_pct")
+    @patch("csrlite.ie.ie_summary.create_rtf_table_n_pct")
     def test_ie_rtf(self, mock_create: MagicMock) -> None:
         """Test RTF generation calls."""
         df = pl.DataFrame({"Criteria": ["Row 1"], "Total": ["1 (100.0)"]})
@@ -142,8 +142,8 @@ class TestStudyPlanToIeSummary(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self.temp_dir)
 
-    @patch("csrlite.ie.ie.StudyPlanParser")
-    @patch("csrlite.ie.ie.ie_rtf")
+    @patch("csrlite.ie.ie_summary.StudyPlanParser")
+    @patch("csrlite.ie.ie_summary.ie_rtf")
     def test_study_plan_to_ie_summary(
         self, mock_ie_rtf: MagicMock, mock_parser_cls: MagicMock
     ) -> None:
@@ -189,9 +189,9 @@ class TestStudyPlanToIeSummary(unittest.TestCase):
         # Verify RTF generation called
         mock_ie_rtf.assert_called_once()
 
-    @patch("csrlite.ie.ie.StudyPlanParser")
-    @patch("csrlite.ie.ie.ie_rtf")
-    @patch("csrlite.ie.ie.apply_common_filters")
+    @patch("csrlite.ie.ie_summary.StudyPlanParser")
+    @patch("csrlite.ie.ie_summary.ie_rtf")
+    @patch("csrlite.ie.ie_summary.apply_common_filters")
     def test_study_plan_to_ie_summary_no_group(
         self, mock_apply: MagicMock, mock_ie_rtf: MagicMock, mock_parser_cls: MagicMock
     ) -> None:
@@ -243,7 +243,7 @@ class TestStudyPlanToIeSummary(unittest.TestCase):
         mock_parser.get_datasets.assert_any_call("adsl")
         mock_apply.assert_called()
 
-    @patch("csrlite.ie.ie.StudyPlanParser")
+    @patch("csrlite.ie.ie_summary.StudyPlanParser")
     def test_study_plan_to_ie_summary_dataset_error(self, mock_parser_cls: MagicMock) -> None:
         """Test error handling when dataset loading fails."""
         # Mock StudyPlan

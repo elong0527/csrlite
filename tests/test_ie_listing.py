@@ -5,7 +5,7 @@ import polars as pl
 import pytest
 
 from csrlite.common.plan import StudyPlan
-from csrlite.ie.ie import ie_listing_df, ie_listing_rtf, study_plan_to_ie_listing
+from csrlite.ie.ie_listing import ie_listing_df, ie_listing_rtf, study_plan_to_ie_listing
 
 # -----------------------------------------------------------------------------
 # Test Data
@@ -71,7 +71,7 @@ def test_study_plan_to_ie_listing(tmp_path):
 
     # Mock Data Loading/Filtering
     # We need to mock StudyPlanParser
-    with patch("csrlite.ie.ie.StudyPlanParser") as MockParser:
+    with patch("csrlite.ie.ie_listing.StudyPlanParser") as MockParser:
         parser_instance = MockParser.return_value
 
         # Mock get_datasets
@@ -83,7 +83,7 @@ def test_study_plan_to_ie_listing(tmp_path):
 
         # Mock apply_common_filters
         # Since we import it in ie.py, we should patch where it is used or imported
-        with patch("csrlite.ie.ie.apply_common_filters") as mock_apply:
+        with patch("csrlite.ie.ie_listing.apply_common_filters") as mock_apply:
             mock_apply.return_value = (adsl_mock, None)
 
             generated_files = study_plan_to_ie_listing(mock_plan)
@@ -107,7 +107,7 @@ def test_study_plan_to_ie_listing_population_error(tmp_path):
     }
     mock_plan.expander = mock_expander
 
-    with patch("csrlite.ie.ie.StudyPlanParser") as MockParser:
+    with patch("csrlite.ie.ie_listing.StudyPlanParser") as MockParser:
         parser_instance = MockParser.return_value
         # Mock get_datasets (ADSL) to fail
         parser_instance.get_datasets.side_effect = ValueError("ADSL not found")
@@ -129,7 +129,7 @@ def test_study_plan_to_ie_listing_default_generation(tmp_path):
     mock_expander.expand_plan.return_value = []
     mock_plan.expander = mock_expander
 
-    with patch("csrlite.ie.ie.StudyPlanParser") as MockParser:
+    with patch("csrlite.ie.ie_listing.StudyPlanParser") as MockParser:
         parser_instance = MockParser.return_value
 
         # Mock ADSL success
@@ -137,7 +137,7 @@ def test_study_plan_to_ie_listing_default_generation(tmp_path):
         parser_instance.get_datasets.return_value = (adsl_mock,)
         parser_instance.get_population_filter.return_value = None
 
-        with patch("csrlite.ie.ie.apply_common_filters") as mock_apply:
+        with patch("csrlite.ie.ie_listing.apply_common_filters") as mock_apply:
             mock_apply.return_value = (adsl_mock, None)
 
             # Should default to creating one listing for "enrolled"
