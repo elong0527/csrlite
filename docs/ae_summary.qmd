@@ -17,6 +17,7 @@ First, let's import the required packages and load our study plan.
 
 ```{python}
 #| message: false
+import os
 import sys
 from pathlib import Path
 import polars as pl

@@ -17,9 +17,7 @@ import sys
 import polars as pl
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath('src'))
-if not os.path.exists('src') and os.path.exists('../src'):
-    sys.path.insert(0, os.path.abspath('../src'))
+sys.path.insert(0, 'src')
 
 from rtflite import LibreOfficeConverter
 try:

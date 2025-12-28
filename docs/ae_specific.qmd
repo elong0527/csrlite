@@ -12,6 +12,7 @@ This guide demonstrates AE specific analysis showing individual adverse event te
 
 ```{python}
 #| message: false
+import os
 import sys
 from pathlib import Path
 import polars as pl

@@ -34,11 +34,15 @@ from .common.plan import (  # Core classes
     load_plan,
 )
 from .disposition.disposition import study_plan_to_disposition_summary
-from .ie.ie import (
+from .ie.ie_listing import (
+    ie_listing_df,
+    ie_listing_rtf,
+    study_plan_to_ie_listing,
+)
+from .ie.ie_summary import (
     ie_ard,
     ie_df,
     ie_rtf,
-    study_plan_to_ie_listing,
     study_plan_to_ie_summary,
 )
 from .pd.pd_listing import (
@@ -84,6 +88,8 @@ __all__ = [
     "ie_df",
     "ie_rtf",
     "study_plan_to_ie_summary",
+    "ie_listing_df",
+    "ie_listing_rtf",
     "study_plan_to_ie_listing",
     # PD analysis
     "pd_listing",

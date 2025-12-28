@@ -33,10 +33,19 @@ book:
 
     - part: "Inclusion/Exclusion"
       chapters:
-        - docs/ie.qmd
+        - docs/ie_summary.qmd
+        - docs/ie_listing.qmd
+
+    - part: "Concomitant Medications"
+      chapters:
+        - docs/cm_summary.qmd
+        - docs/cm_listing.qmd
     - part: "Disposition"
       chapters:
         - docs/disposition.qmd
+    - part: "Protocol Deviations"
+      chapters:
+        - docs/pd.qmd
     - part: "Appendix"
       chapters:
         - docs/count.qmd
