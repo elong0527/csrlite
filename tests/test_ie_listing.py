@@ -1,4 +1,9 @@
 import os
+
+# -----------------------------------------------------------------------------
+# Test Data
+# -----------------------------------------------------------------------------
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import polars as pl
@@ -7,13 +12,9 @@ import pytest
 from csrlite.common.plan import StudyPlan
 from csrlite.ie.ie_listing import ie_listing_df, ie_listing_rtf, study_plan_to_ie_listing
 
-# -----------------------------------------------------------------------------
-# Test Data
-# -----------------------------------------------------------------------------
-
 
 @pytest.fixture
-def adsl_data():
+def adsl_data() -> pl.DataFrame:
     return pl.DataFrame(
         {
             "USUBJID": ["01-001", "01-002", "01-003"],
@@ -29,7 +30,7 @@ def adsl_data():
 # -----------------------------------------------------------------------------
 
 
-def test_ie_listing_df(adsl_data):
+def test_ie_listing_df(adsl_data: pl.DataFrame) -> None:
     """Test dataframe creation for listing."""
     df = ie_listing_df(adsl_data)
 
@@ -41,7 +42,7 @@ def test_ie_listing_df(adsl_data):
     assert "01-001" in usubjid
 
 
-def test_ie_listing_rtf(adsl_data, tmp_path):
+def test_ie_listing_rtf(adsl_data: pl.DataFrame, tmp_path: Any) -> None:
     """Test RTF generation."""
     df = ie_listing_df(adsl_data)
     output_path = tmp_path / "test_listing.rtf"
@@ -52,7 +53,7 @@ def test_ie_listing_rtf(adsl_data, tmp_path):
     assert output_path.stat().st_size > 0
 
 
-def test_study_plan_to_ie_listing(tmp_path):
+def test_study_plan_to_ie_listing(tmp_path: Any) -> None:
     """Test the full study plan integration."""
 
     # Mock StudyPlan
@@ -93,7 +94,7 @@ def test_study_plan_to_ie_listing(tmp_path):
             assert os.path.exists(generated_files[0])
 
 
-def test_study_plan_to_ie_listing_population_error(tmp_path):
+def test_study_plan_to_ie_listing_population_error(tmp_path: Any) -> None:
     """Test error handling when population loading fails."""
     mock_plan = MagicMock(spec=StudyPlan)
     mock_plan.output_dir = str(tmp_path)
@@ -117,7 +118,7 @@ def test_study_plan_to_ie_listing_population_error(tmp_path):
         assert len(generated) == 0
 
 
-def test_study_plan_to_ie_listing_default_generation(tmp_path):
+def test_study_plan_to_ie_listing_default_generation(tmp_path: Any) -> None:
     """Test default generation when no explicit listing plan is present."""
     mock_plan = MagicMock(spec=StudyPlan)
     mock_plan.output_dir = str(tmp_path)
