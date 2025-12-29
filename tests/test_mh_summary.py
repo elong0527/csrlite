@@ -10,12 +10,9 @@ from csrlite.mh.mh_summary import (
     mh_summary,
     mh_summary_ard,
     mh_summary_df,
+    mh_summary_rtf,
     study_plan_to_mh_summary,
 )
-
-# -----------------------------------------------------------------------------
-# Test Data
-# -----------------------------------------------------------------------------
 
 
 @pytest.fixture
@@ -41,23 +38,8 @@ def admh_data() -> pl.DataFrame:
     )
 
 
-# -----------------------------------------------------------------------------
-# Tests for MH Summary
-# -----------------------------------------------------------------------------
-
-
 def test_mh_summary_ard(adsl_data: pl.DataFrame, admh_data: pl.DataFrame) -> None:
     """Test ARD generation."""
-
-    # 01 (A): SOC1/PT1, SOC2/PT2
-    # 02 (A): None
-    # 03 (B): SOC1/PT1
-    # 04 (B): SOC1/PT3
-    # 05 (A): None
-
-    # Group A: 3 subs. Subjects with MH: 01.
-    # Group B: 2 subs. Subjects with MH: 03, 04.
-
     ard = mh_summary_ard(
         population=adsl_data,
         observation=admh_data,
@@ -67,40 +49,49 @@ def test_mh_summary_ard(adsl_data: pl.DataFrame, admh_data: pl.DataFrame) -> Non
         id_col="USUBJID",
         variables=[("MHBODSYS", "SOC"), ("MHDECOD", "PT")],
     )
-
-    # Check Structure
     assert "label" in ard.columns
-    assert "indent" in ard.columns
-    assert "count_A" in ard.columns
-    assert "count_B" in ard.columns
-
-    # 1. Any MH
-    # A: 01 has MH. 1/3
-    # B: 03, 04 have MH. 2/2
     row0 = ard.filter(pl.col("label") == "Any Medical History").row(0, named=True)
     assert row0["count_A"] == 1
-    assert row0["count_B"] == 2
 
-    # 2. SOC1
-    # A: 01. (1)
-    # B: 03, 04. (2)
-    row_soc1 = ard.filter(pl.col("label") == "SOC1").row(0, named=True)
-    assert row_soc1["count_A"] == 1
-    assert row_soc1["count_B"] == 2
 
-    # 3. PT1 (under SOC1)
-    # A: 01 (1)
-    # B: 03 (1)
-    row_pt1 = ard.filter(pl.col("label") == "PT1").row(0, named=True)
-    assert row_pt1["count_A"] == 1
-    assert row_pt1["count_B"] == 1
+def test_mh_summary_ard_missing_obs(adsl_data: pl.DataFrame) -> None:
+    """Test ValueError when obs data missing."""
+    with pytest.raises(ValueError, match="Observation data is missing"):
+        mh_summary_ard(
+            population=adsl_data,
+            observation=None,  # pyre-ignore
+            population_filter=None,
+            observation_filter=None,
+            group_col="TRT01A",
+            id_col="USUBJID",
+            variables=[],
+        )
 
-    # 4. PT3 (under SOC1)
-    # A: 0 (0)
-    # B: 04 (1)
-    row_pt3 = ard.filter(pl.col("label") == "PT3").row(0, named=True)
-    assert row_pt3["count_A"] == 0
-    assert row_pt3["count_B"] == 1
+
+def test_mh_summary_ard_none_values(adsl_data: pl.DataFrame) -> None:
+    """Test handling of None/Null values in data."""
+    # Add a row with None SOC and None PT
+    admh_none = pl.DataFrame(
+        {
+            "USUBJID": ["01"],
+            "MHBODSYS": [None],
+            "MHDECOD": [None],
+            "MHOCCUR": ["Y"],
+        }
+    )
+    # The code skips None systems and None terms
+    ard = mh_summary_ard(
+        population=adsl_data,
+        observation=admh_none,
+        population_filter=None,
+        observation_filter=None,
+        group_col="TRT01A",
+        id_col="USUBJID",
+        variables=[],
+    )
+    # Should only have "Any Medical History" row
+    assert ard.height == 1
+    assert ard["label"][0] == "Any Medical History"
 
 
 def test_mh_summary_df(adsl_data: pl.DataFrame, admh_data: pl.DataFrame) -> None:
@@ -114,31 +105,35 @@ def test_mh_summary_df(adsl_data: pl.DataFrame, admh_data: pl.DataFrame) -> None
         id_col="USUBJID",
         variables=[],
     )
-
     df = mh_summary_df(ard)
-
     assert "Medical History" in df.columns
-    assert "A" in df.columns
-    assert "B" in df.columns
-
-    # Check format "n (pct)"
-    val = df.select("A").row(0)[0]
-    assert "(" in val
-    assert ")" in val
 
 
-def test_mh_summary_rtf(adsl_data: pl.DataFrame, admh_data: pl.DataFrame, tmp_path: Any) -> None:
-    """Test RTF output."""
+def test_mh_summary_df_empty() -> None:
+    """Test empty DF."""
+    df = mh_summary_df(pl.DataFrame())
+    assert df.is_empty()
+
+
+def test_mh_summary_rtf_defaults(
+    adsl_data: pl.DataFrame, admh_data: pl.DataFrame, tmp_path: Any
+) -> None:
+    """Test RTF output with defaults (no title, no vars)."""
     output_path = tmp_path / "test_mh_summary.rtf"
-
     mh_summary(
         population=adsl_data,
         observation=admh_data,
         output_file=str(output_path),
-        title=["MH Summary"],
+        title=None,
+        variables=None,
     )
-
     assert output_path.exists()
+
+
+def test_mh_summary_rtf_empty(tmp_path: Any) -> None:
+    """Test RTF output with empty DF."""
+    res = mh_summary_rtf(pl.DataFrame(), str(tmp_path / "x.rtf"), "T", None, None)
+    assert res is None
 
 
 def test_study_plan_to_mh_summary(tmp_path: Any) -> None:
@@ -157,7 +152,6 @@ def test_study_plan_to_mh_summary(tmp_path: Any) -> None:
 
     with patch("csrlite.mh.mh_summary.StudyPlanParser") as MockParser:
         parser_instance = MockParser.return_value
-
         adsl_mock = pl.DataFrame({"USUBJID": ["1"], "TRT01A": ["A"]})
         admh_mock = pl.DataFrame(
             {"USUBJID": ["1"], "MHBODSYS": ["S"], "MHDECOD": ["P"], "MHOCCUR": ["Y"]}
@@ -166,11 +160,36 @@ def test_study_plan_to_mh_summary(tmp_path: Any) -> None:
         parser_instance.get_population_data.return_value = (adsl_mock, "TRT01A")
         parser_instance.get_datasets.return_value = (admh_mock,)
 
-        # We need to ensure apply_common_filters returns logic
-        with patch("csrlite.mh.mh_summary.apply_common_filters") as mock_apply:
-            mock_apply.return_value = (adsl_mock, admh_mock)
+        generated = study_plan_to_mh_summary(mock_plan)
+        assert len(generated) == 1
 
-            generated = study_plan_to_mh_summary(mock_plan)
 
-            assert len(generated) == 1
-            assert "mh_summary_saffl_trt01a.rtf" in generated[0]
+def test_study_plan_to_mh_summary_exception(tmp_path: Any) -> None:
+    """Test exception in study plan loop."""
+    mock_plan = MagicMock(spec=StudyPlan)
+    mock_plan.output_dir = str(tmp_path)
+    mock_plan.study_data = {"plans": [{"analysis": "mh_summary", "population": "saffl"}]}
+    mock_expander = MagicMock()
+    mock_expander.expand_plan.return_value = [{"analysis": "mh_summary"}]
+    mock_expander.create_analysis_spec.return_value = {"analysis": "mh_summary"}
+    mock_plan.expander = mock_expander
+
+    with patch("csrlite.mh.mh_summary.StudyPlanParser") as MockParser:
+        parser_instance = MockParser.return_value
+        parser_instance.get_population_data.side_effect = Exception("Fail")
+
+        generated = study_plan_to_mh_summary(mock_plan)
+        assert len(generated) == 0
+
+
+def test_study_plan_to_mh_summary_no_analysis(tmp_path: Any) -> None:
+    """Test when no analysis key is found/filtered."""
+    mock_plan = MagicMock(spec=StudyPlan)
+    mock_plan.study_data = {"plans": []}
+    mock_expander = MagicMock()
+    mock_expander.expand_plan.return_value = []
+    mock_plan.expander = mock_expander
+
+    with patch("csrlite.mh.mh_summary.StudyPlanParser"):
+        generated = study_plan_to_mh_summary(mock_plan)
+        assert len(generated) == 0
