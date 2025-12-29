@@ -1,0 +1,85 @@
+---
+title: "IE Listing"
+---
+
+::: {.callout-note}
+## Objectives
+
+This guide demonstrates Inclusion/Exclusion (IE) listing showing detailed protocol deviations.
+:::
+
+## Setup
+
+```{python}
+#| message: false
+import sys
+from pathlib import Path
+import polars as pl
+
+sys.path.insert(0, 'src')
+
+from rtflite import LibreOfficeConverter
+try:
+    converter = LibreOfficeConverter()
+except Exception:
+    converter = None
+    print("WARNING: LibreOffice not found. PDF conversion will be skipped.")
+```
+
+```{python}
+from csrlite import load_plan, study_plan_to_ie_listing
+from csrlite.ie.ie_listing import ie_listing_df, ie_listing_rtf
+```
+
+## IE Listing Analysis
+
+The IE listing details individual subject deviations.
+
+## StudyPlan-Driven Workflow
+
+```{python}
+study_plan = load_plan("studies/xyz123/yaml/plan_xyz123.yaml")
+study_plan.get_plan_df().filter(pl.col("analysis") == "ie_listing")
+```
+
+```{python}
+output_files = study_plan_to_ie_listing(study_plan)
+```
+
+```{python}
+#| echo: false
+for file in output_files:
+    if converter:
+        converter.convert(file, output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+### ie_listing_scrfail
+
+<embed src="pdf/ie_listing_scrfail.pdf" style="width:100%; height:800px" type="application/pdf">
+
+## Complete Pipeline
+
+```{python}
+adsl = pl.read_parquet("data/adsl.parquet")
+# adie = pl.read_parquet("data/adie.parquet") # Not used in current simple listing
+
+# Process for listing (simpler pipeline than summary)
+df = ie_listing_df(adsl)
+
+ie_listing_rtf(
+    df,
+    "studies/xyz123/rtf/ie_listing_manual.rtf",
+    title=[
+        "Listing of Protocol Deviations",
+        "(Inclusion/Exclusion)"
+    ]
+)
+```
+
+```{python}
+#| echo: false
+if converter:
+    converter.convert("studies/xyz123/rtf/ie_listing_manual.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+<embed src="pdf/ie_listing_manual.pdf" style="width:100%; height:800px" type="application/pdf">

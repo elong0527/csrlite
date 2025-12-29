@@ -12,6 +12,7 @@ This guide demonstrates AE listing showing detailed individual adverse event rec
 
 ```{python}
 #| message: false
+import os
 import sys
 from pathlib import Path
 import polars as pl

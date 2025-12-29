@@ -1,0 +1,93 @@
+---
+title: "IE Summary"
+---
+
+::: {.callout-note}
+## Objectives
+
+This guide demonstrates Inclusion/Exclusion (IE) summary analysis showing Protocol Deviations.
+:::
+
+## Setup
+
+```{python}
+#| message: false
+import sys
+from pathlib import Path
+import polars as pl
+
+sys.path.insert(0, 'src')
+
+from rtflite import LibreOfficeConverter
+try:
+    converter = LibreOfficeConverter()
+except Exception:
+    converter = None
+    print("WARNING: LibreOffice not found. PDF conversion will be skipped.")
+```
+
+```{python}
+from csrlite import load_plan, study_plan_to_ie_summary
+from csrlite.ie.ie_summary import ie_ard, ie_df, ie_rtf
+```
+
+## IE Summary Analysis
+
+The IE analysis focuses on:
+1. Identifying screening failures from ADSL/ADIE.
+2. Breaking down failures by category (Inclusion vs Exclusion).
+3. Detailing specific criteria failures.
+
+## StudyPlan-Driven Workflow
+
+```{python}
+study_plan = load_plan("studies/xyz123/yaml/plan_xyz123.yaml")
+study_plan.get_plan_df().filter(pl.col("analysis") == "ie_summary")
+```
+
+```{python}
+output_files = study_plan_to_ie_summary(study_plan)
+```
+
+```{python}
+#| echo: false
+for file in output_files:
+    if converter:
+        converter.convert(file, output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+### ie_summary_scrfail
+
+<embed src="pdf/ie_summary_scrfail.pdf" style="width:100%; height:800px" type="application/pdf">
+
+## Complete Pipeline
+
+```{python}
+adsl = pl.read_parquet("data/adsl.parquet")
+adie = pl.read_parquet("data/adie.parquet")
+
+ard = ie_ard(
+    adsl=adsl,
+    adie=adie,
+    group_col="TRT01A"
+)
+
+df = ie_df(ard)
+
+ie_rtf(
+    df,
+    "studies/xyz123/rtf/ie_summary_manual.rtf",
+    title=[
+        "Summary of Protocol Deviations",
+        "(Inclusion/Exclusion)"
+    ]
+)
+```
+
+```{python}
+#| echo: false
+if converter:
+    converter.convert("studies/xyz123/rtf/ie_summary_manual.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+<embed src="pdf/ie_summary_manual.pdf" style="width:100%; height:800px" type="application/pdf">

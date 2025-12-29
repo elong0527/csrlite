@@ -1,0 +1,112 @@
+---
+title: "CM Listing"
+---
+
+::: {.callout-note}
+## Objectives
+
+This guide demonstrates Concomitant Medications (CM) listing showing detailed individual medication records.
+:::
+
+## Setup
+
+```{python}
+#| message: false
+import os
+import sys
+import polars as pl
+from pathlib import Path
+
+sys.path.insert(0, 'src')
+
+from rtflite import LibreOfficeConverter
+try:
+    converter = LibreOfficeConverter()
+except Exception:
+    converter = None
+    print("WARNING: LibreOffice not found. PDF conversion will be skipped.")
+
+from csrlite import load_plan, study_plan_to_cm_listing
+from csrlite.cm.cm_listing import cm_listing
+```
+
+## Concomitant Medications Listing
+
+Shows detailed individual concomitant medications with categories, terms, and dosing information.
+
+## StudyPlan-Driven Workflow
+
+```{python}
+study_plan = load_plan("studies/xyz123/yaml/plan_xyz123.yaml")
+study_plan.get_plan_df().filter(pl.col("analysis") == "cm_listing")
+```
+
+```{python}
+output_files = study_plan_to_cm_listing(study_plan)
+```
+
+```{python}
+#| echo: false
+for file in output_files:
+    if converter:
+        converter.convert(file, output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+## Complete Pipeline
+
+```{python}
+# Load data
+data_path = Path("data") if Path("data").exists() else Path("../data")
+adsl = pl.read_parquet(data_path / "adsl.parquet")
+adcm = pl.read_parquet(data_path / "adcm.parquet")
+
+# Define output path
+output_rtf = "studies/xyz123/rtf/cm_listing_manual.rtf"
+# Ensure directory exists
+Path(output_rtf).parent.mkdir(parents=True, exist_ok=True)
+
+pd_listing_path = cm_listing(
+    population=adsl,
+    observation=adcm,
+    population_filter="SAFFL = 'Y'",
+    observation_filter="CONFL = 'Y'", # On-treatment/Concomitant
+    parameter_filter=None,
+    id=("USUBJID", "Subject ID"),
+    title=[
+        "Listing of Concomitant Medications",
+        "(Safety Population)"
+    ],
+    footnote=["Medications are sorted by treatment and subject ID."],
+    source=["Source: ADSL and ADCM datasets"],
+    output_file=output_rtf,
+    population_columns=[
+        ("TRT01A", "Treatment"),
+        ("AGE", "Age"),
+        ("SEX", "Sex")
+    ],
+    observation_columns=[
+        ("CMSEQ", "Sequence"),
+        ("CMTRT", "Medication"),
+        ("CMDECOD", "Standardized Name"),
+        ("ASTDT", "Start Date"),
+        ("AENDT", "End Date"),
+        ("CMDOSE", "Dose"),
+        ("CMDOSU", "Unit"),
+        ("CMROUTE", "Route"),
+        ("CMFREQ", "Frequency"),
+        ("CMINDC", "Indication")
+    ],
+    sort_columns=["TRT01A", "USUBJID", "ASTDT", "CMSEQ"],
+    group_by=["USUBJID"],
+    page_by=["TRT01A"],
+)
+print(f"Generated: {pd_listing_path}")
+```
+
+```{python}
+#| echo: false
+if converter:
+    converter.convert("studies/xyz123/rtf/cm_listing_manual.rtf", output_dir="docs/pdf/", format="pdf", overwrite=True)
+```
+
+<embed src="pdf/cm_listing_manual.pdf" style="width:100%; height:800px" type="application/pdf">
